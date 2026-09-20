@@ -1,0 +1,9 @@
+[submodule "FreeRTOS"]
+	path = FreeRTOS
+	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "drivers/CMSIS_5"]
+	path = drivers/CMSIS_5
+	url = https://github.com/ARM-software/CMSIS_5.git
+[submodule "drivers/cmsis_device_l4"]
+	path = drivers/cmsis_device_l4
+	url = https://github.com/STMicroelectronics/cmsis_device_l4.git
