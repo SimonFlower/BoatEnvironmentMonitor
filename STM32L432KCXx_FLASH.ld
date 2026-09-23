@@ -50,4 +50,6 @@ SECTIONS
     . = ALIGN(4);
     _ebss = .;
   } >RAM
+
+  _end = .;
 }

@@ -17,18 +17,23 @@ INCLUDES = -Iinc \
 CFLAGS  = $(MCU_FLAGS) -g -Os -Wall $(INCLUDES) -DSTM32L432xx
 
 # Linker flags
-LDFLAGS = $(MCU_FLAGS) -T STM32L432KCXx_FLASH.ld -Wl,--gc-sections --specs=nano.specs
+LDFLAGS = $(MCU_FLAGS) -T STM32L432KCXx_FLASH.ld -Wl,--gc-sections --specs=nano.specs --specs=nosys.specs
 
 # Source files
 SRCS = src/main.c \
+       src/led.c \
+       src/adc.c \
+       src/dht22.c \
        src/startup_stm32l432kc.s \
        drivers/cmsis_device_l4/Source/Templates/system_stm32l4xx.c \
        FreeRTOS/tasks.c \
        FreeRTOS/queue.c \
        FreeRTOS/list.c \
        FreeRTOS/timers.c \
+       FreeRTOS/event_groups.c \
        FreeRTOS/portable/GCC/ARM_CM4F/port.c \
-       FreeRTOS/portable/MemMang/heap_4.c
+       FreeRTOS/portable/MemMang/heap_4.c \
+       src/system_funcs.c
 
 # Object files output mapping
 OBJS = $(addprefix build/, $(notdir $(addsuffix .o, $(basename $(SRCS)))))
