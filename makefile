@@ -17,7 +17,7 @@ INCLUDES = -Iinc \
 CFLAGS  = $(MCU_FLAGS) -g -Os -Wall $(INCLUDES) -DSTM32L432xx
 
 # Linker flags
-LDFLAGS = $(MCU_FLAGS) -T STM32L432KCXx_FLASH.ld -Wl,--gc-sections --specs=nano.specs --specs=nosys.specs
+LDFLAGS = $(MCU_FLAGS) -T STM32L432KCXx_FLASH.ld -Wl,--gc-sections -u _printf_float --specs=nano.specs --specs=nosys.specs
 
 # Source files
 SRCS = src/main.c \

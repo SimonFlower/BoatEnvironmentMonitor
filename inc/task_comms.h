@@ -6,13 +6,13 @@
 #include "event_groups.h"
 #include "queue.h"
 
-// An identifier for the type of task
+// An identifier for the type of data collection task
 typedef enum {TASK_ADC, TASK_DHT22} TaskType_t;
 
-// A code for the completion status of the task
+// A code for the completion status of a data collection task
 typedef enum {COMPLETED_OK, COMPLETED_FAIL, COMPLETED_INTERRUPTED} TaskCompletion_t;
 
-// This structure is used to configure tasks
+// This structure is used to configure data collection tasks
 typedef struct {
     // The type of task (ADC or DHT22)
     TaskType_t type;
@@ -36,18 +36,15 @@ typedef struct {
         } ADC_params;
         struct {
             // TODO: parameters that specify which DHT to use and possibly metadata for the data as well
-        } DHT211_params;
+        } DHT22_params;
     } task_specific;
 } TaskCfg_t;
 
-// A structure that is filled by the ADC and DHT22 tasks to pass a reading back
-// to the main task
+// A structure that is filled by data collection tasks to pass a reading back to the main task
 typedef struct {
     // These members allow the task to be identified
     TaskType_t type;
     EventBits_t id;
-    // The time that the reading was made
-    uint32_t timestamp;
     // The completion status
     TaskCompletion_t status;
     // The value(s) for the reading - only valid when status == COMPLETED_OK

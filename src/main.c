@@ -12,21 +12,39 @@
 #include "led.h"
 #include "adc.h"
 #include "dht22.h"
+#include "system_funcs.h"
 #include "debug.h"
 
-// definitions for the numbers of tasks
+// Definitions for the numbers of tasks
 #define N_ADC_TASKS         4U
 #define N_DHT22_TASKS       5U
 #define N_TASKS             (N_ADC_TASKS + N_DHT22_TASKS)
 #define ALL_TASKS_BITMASK   ((1U << N_TASKS) - 1U)
+#if N_TASKS > 24
+#error "Number of tasks must be 24 or less (because it is used with FreeRTOS event groups)"
+#endif
 
-// timeout (in mS) for the tasks to complete
+// Timeout (in mS) for the tasks to complete
 #define TASK_TIMEOUT        10000
 
-// time between collections (in mS)
+// Time between collections (in mS)
 #define COLLECTION_INTERVAL 60000
 
-// a structure that allows multiple parameters to be passed to the main task
+// Size of the FreeRTOS stack for data collection tasks and for the main task
+// measured in words (not bytes).
+// Floating point requires everything to be aligned on 8-byte boundaries, so
+// these values must be integer multiples of 8
+#define DC_TASK_STACK_SIZE      256
+#define MAIN_TASK_STACK_SIZE    1024
+
+// FreeRTOS priority for data collections tasks and for the main task
+#define DC_TASK_PRIO            1
+#define MAIN_TASK_PRIO          2
+
+#define FPU_FPCCR_ASPEN (1UL << 31)
+#define FPU_FPCCR_LSPEN (1UL << 30)
+
+// a structure that allows multiple parameters to be passed into the main task
 typedef struct {
     // An event group used to start a data collection operation
     // This is *written* by the main task
@@ -49,11 +67,23 @@ void HardFault_Handler(void);
 
 int main(void) {
 
+    /* Update SystemCoreClock variable according to RCC clock registers */
+    SystemCoreClockUpdate();
+    
+    /* Enable CP10 and CP11 to ensure full access for hardware Floating Point Unit */
+    SCB->CPACR |= ((3UL << 10*2) | (3UL << 11*2));
+
+    /* Enable FPU automatic state preservation and lazy stacking (ASPEN | LSPEN) */
+    FPU->FPCCR |= (FPU_FPCCR_ASPEN | FPU_FPCCR_LSPEN);
+    
 #ifdef DEBUG
+    /* create the mutex for the system _write() function so that it is thread safe */
+    createUsartMutex();
+
     // Disable stdout buffering so characters print immediately without needing '\n'
     setvbuf(stdout, NULL, _IONBF, 0);
     
-    printf ("Boat Environment Monitor starting\n");
+    printf ("Boat Environment Monitor starting\r\n");
 #endif
 
     // The structure used to configure the main task
@@ -65,19 +95,20 @@ int main(void) {
     // This variable is used to track correct initialization
     BaseType_t status = pdPASS;
     
-    // Create the event groups used to trigger and synchronize tasks
-    // Note that FreeRTOS creates the group with all bits cleared
+    // Create the event groups used to trigger and synchronize data collection tasks
+    // Note that FreeRTOS creates the group with all bits cleared, so that waiting on
+    // the event group will initially block
     main_task_cfg.EG_trigger = xEventGroupCreate();
     main_task_cfg.EG_sync = xEventGroupCreate();
     if (! main_task_cfg.EG_trigger || ! main_task_cfg.EG_sync)
         status = errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
         
-    // Create the queue that sub systems will use to communicate results
+    // Create the queue that data collection tasks will use to communicate results
     main_task_cfg.results_queue = xQueueCreate(N_TASKS, sizeof(SensorData_t));
     if (! main_task_cfg.results_queue)
         status = errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
 
-    // Create the tasks that will retrieve sensor data
+    // Create the data collection tasks that will retrieve sensor data
     int task_count = 0;
     for (int count=0; count<3; count++) {
         char name [20];
@@ -94,15 +125,15 @@ int main(void) {
         task_count += 1;
     }
     
-    // Create the controlling task
+    // Create the main task which controls the data collection tasks
     if (status == pdPASS)
-        status = xTaskCreate(mainTask, "Main", configMINIMAL_STACK_SIZE, (void *) &main_task_cfg, 1, NULL);
+        status = xTaskCreate(mainTask, "Main", MAIN_TASK_STACK_SIZE, (void *) &main_task_cfg, MAIN_TASK_PRIO, NULL);
     
-    // Start FreeRTOS scheduler
+    // Start FreeRTOS scheduler - this starts all the tasks
     if (status == pdPASS)
         vTaskStartScheduler();
 
-    // Error handler
+    // Error handler - if all is working this code should never be reached
     initHardware ();
     blinkLEDForever (LED_INIT_ERR);
 }
@@ -122,7 +153,8 @@ BaseType_t addTask (TaskType_t type, char *name, MainTaskCfg_t *main_task_cfg, T
     if (status == pdPASS) {
         TaskCfg_t *params = task_cfg + task_count;
         params->type = type;
-        strcpy (params->name, name);
+        strncpy (params->name, name, sizeof(params->name) -1);
+        params->name[sizeof (params->name) -1] = '\0';
         params->EG_trigger = main_task_cfg->EG_trigger;
         params->EG_sync = main_task_cfg->EG_sync;
         params->EG_bitmask = 1 << task_count;
@@ -134,7 +166,7 @@ BaseType_t addTask (TaskType_t type, char *name, MainTaskCfg_t *main_task_cfg, T
             case TASK_DHT22: function = dht22Task; break;
             default: return pdFAIL;
         }
-        status = xTaskCreate(function, params->name, configMINIMAL_STACK_SIZE, (void *) params, 1, &main_task_cfg->tasks[task_count]);
+        status = xTaskCreate(function, params->name, DC_TASK_STACK_SIZE, (void *) params, DC_TASK_PRIO, &main_task_cfg->tasks[task_count]);
     }
     return status;
 }
@@ -151,7 +183,7 @@ void mainTask(void *pvParameters) {
     MainTaskCfg_t *main_task_cfg = (MainTaskCfg_t *) pvParameters;
 
 #ifdef DEBUG
-    printf ("Boat Environment Monitor main task starting\n");
+    printf ("Boat Environment Monitor main task starting\r\n");
 #endif
 
     for (;;) {
@@ -161,10 +193,10 @@ void mainTask(void *pvParameters) {
         // Clear previous completion bits
         xEventGroupClearBits(main_task_cfg->EG_sync, ALL_TASKS_BITMASK);
 
-        // Trigger all sensor tasks simultaneously
+        // Trigger all data collection tasks simultaneously
         xEventGroupSetBits(main_task_cfg->EG_trigger, ALL_TASKS_BITMASK);
 
-        // Wait until ALL worker tasks have reported done or timeout
+        // Wait until all data collection tasks have reported done or timeout
         EventBits_t uxBits = xEventGroupWaitBits(
             main_task_cfg->EG_sync,
             ALL_TASKS_BITMASK,
@@ -185,10 +217,10 @@ void mainTask(void *pvParameters) {
         n_results = 0;
         while (xQueueReceive(main_task_cfg->results_queue, &data[n_results], 0) == pdTRUE) {
 #ifdef DEBUG
-            printf ("Result %d: %d %ld %d %lu %f %f\n",
+            printf ("Result %d: %d %ld %d %f %f\r\n",
                     n_results,
                     data[n_results].type, data[n_results].id, data[n_results].status,
-                    data[n_results].timestamp, data[n_results].value, data[n_results].value2);
+                    data[n_results].value, data[n_results].value2);
 #endif
             n_results += 1;
         }

@@ -1,6 +1,6 @@
 .syntax unified
 .cpu cortex-m4
-.fpu softvfp
+.fpu fpv4-sp-d16
 .thumb
 
 .global g_pfnVectors
@@ -9,8 +9,17 @@
 .section .text.Reset_Handler
 .type Reset_Handler, %function
 Reset_Handler:
+/* Load top of stack and force 8-byte alignment */
   ldr   r0, =_estack
+  mov   r1, #7
+  bic   r0, r0, r1
   msr   msp, r0
+
+  /* Enable 8-byte stack alignment in Configuration and Control Register (CCR) */
+  ldr   r0, =0xE000ED14   /* SCB->CCR address */
+  ldr   r1, [r0]
+  orr   r1, r1, #(1 << 9) /* Set STKALIGN bit */
+  str   r1, [r0]
 
   /* Copy .data from FLASH to RAM */
   ldr r0, =_sdata
@@ -50,22 +59,40 @@ LoopFillZerobss:
 .size Reset_Handler, .-Reset_Handler
 
 .section .isr_vector,"a",%progbits
-.type g_pfnVectors, %object
+  .type g_pfnVectors, %object
+  .align 2
 g_pfnVectors:
   .word _estack
   .word Reset_Handler
-  .word 0               /* NMI */
+  .word Default_Handler     /* NMI */
   .word HardFault_Handler
+  .word Default_Handler     /* MemManage */
+  .word Default_Handler     /* BusFault */
+  .word Default_Handler     /* UsageFault */
   .word 0
   .word 0
   .word 0
   .word 0
+  .word vPortSVCHandler     /* FreeRTOS SVC Handler */
+  .word Default_Handler     /* DebugMon */
   .word 0
-  .word 0
-  .word 0
-  .word SVC_Handler     /* FreeRTOS SVC */
-  .word 0
-  .word 0
-  .word PendSV_Handler  /* FreeRTOS PendSV */
-  .word SysTick_Handler /* FreeRTOS SysTick */
+  .word xPortPendSVHandler  /* FreeRTOS PendSV Handler */
+  .word xPortSysTickHandler /* FreeRTOS SysTick Handler */
+
+  .weak vPortSVCHandler
+  .thumb_set vPortSVCHandler, Default_Handler
+
+  .weak xPortPendSVHandler
+  .thumb_set xPortPendSVHandler, Default_Handler
+
+  .weak xPortSysTickHandler
+  .thumb_set xPortSysTickHandler, Default_Handler
+
+  .section .text.Default_Handler,"ax",%progbits
+  .global Default_Handler
+  .type Default_Handler, %function
+Default_Handler:
+  /* Call C HardFault_Handler to display LED error pattern */
+  bl HardFault_Handler
+  .size Default_Handler, .-Default_Handler
   

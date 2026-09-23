@@ -29,19 +29,22 @@ long_line_column=72
 
 [files]
 current_page=11
-FILE_NAME_0=479;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2FFreeRTOSConfig.h;0;4
-FILE_NAME_1=146;Markdown;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
-FILE_NAME_2=1081;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fmakefile;0;4
-FILE_NAME_3=1643;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Ftask_comms.h;0;4
-FILE_NAME_4=6697;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fmain.c;0;4
-FILE_NAME_5=1041;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fled.c;0;4
-FILE_NAME_6=74;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fadc.c;0;4
-FILE_NAME_7=107;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fdht22.c;0;4
-FILE_NAME_8=86;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fadc.h;0;4
-FILE_NAME_9=92;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fdht22.h;0;4
-FILE_NAME_10=285;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fled.h;0;4
-FILE_NAME_11=1540;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fsystem_funcs.c;0;4
-FILE_NAME_12=330;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fdebug.h;0;4
+FILE_NAME_0=4517;Markdown;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
+FILE_NAME_1=632;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fmakefile;0;4
+FILE_NAME_2=244;None;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FSTM32L432KCXx_FLASH.ld;0;4
+FILE_NAME_3=1155;ASM;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fstartup_stm32l432kc.s;0;4
+FILE_NAME_4=1546;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2FFreeRTOSConfig.h;0;4
+FILE_NAME_5=254;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fmain.c;0;4
+FILE_NAME_6=1703;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Ftask_comms.h;0;4
+FILE_NAME_7=92;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fdht22.h;0;4
+FILE_NAME_8=972;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fdht22.c;0;4
+FILE_NAME_9=86;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fadc.h;0;4
+FILE_NAME_10=1033;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fadc.c;0;4
+FILE_NAME_11=137;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fled.h;0;4
+FILE_NAME_12=1041;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fled.c;0;4
+FILE_NAME_13=93;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fsystem_funcs.h;0;4
+FILE_NAME_14=3660;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fsystem_funcs.c;0;4
+FILE_NAME_15=330;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fdebug.h;0;4
 
 [VTE]
 last_dir=/home/smf

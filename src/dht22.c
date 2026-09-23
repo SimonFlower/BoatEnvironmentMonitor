@@ -1,4 +1,4 @@
-/* take readings from DHT22 temperature and humidity sensors */
+/* a data collection task to take readings from DHT22 temperature and humidity sensors */
 
 #include "task_comms.h"
 #include "debug.h"
@@ -24,10 +24,9 @@ void dht22Task(void *pvParameters) {
         SensorData_t data;
         data.type = task_cfg->type;
         data.id = task_cfg->EG_bitmask;
-        data.status = COMPLETED_OK;         // TODO
-        data.timestamp = 0;                 // TODO
-        data.value = 0.0;                   // TODO
-        data.value2 = 0.0;                  // TODO
+        data.status = COMPLETED_OK;          // TODO
+        data.value = (float) data.id;        // TODO
+        data.value2 = (float) data.id * 2.0; // TODO
         xQueueSend(task_cfg->results_queue, &data, portMAX_DELAY);
         
         // Tell main task that we are done
