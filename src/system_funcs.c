@@ -5,18 +5,17 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <string.h>
+
+#include "stm32l4xx_hal.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
 
-#include "led.h"
 #include "debug.h"
-
-// Register definitions for USART2 (PA2 = TX, connected to ST-LINK)
-#define RCC_BASE       0x40021000UL
-#define GPIOA_BASE     0x48000000UL
-#define USART2_BASE    0x40004400UL
+#include "led.h"
+#include "system_funcs.h"
 
 #define RCC_AHB2ENR    (*((volatile uint32_t *)(RCC_BASE + 0x4C)))
 #define RCC_APB1ENR1   (*((volatile uint32_t *)(RCC_BASE + 0x58)))
@@ -123,24 +122,7 @@ int _kill(int pid, int sig) {
     return -1;
 }
 
-/* Called by FreeRTOS when a task overflows its stack */
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
-    (void)xTask;
-    (void)pcTaskName;
-    
-    // Disable interrupts and signal fault via LED pattern
-    taskDISABLE_INTERRUPTS();
-    blinkLEDForever(LED_HARD_FAULT);
-}
-
-/* Called by FreeRTOS when pvPortMalloc fails to allocate memory */
-void vApplicationMallocFailedHook(void) {
-    // Disable interrupts and signal fault via LED pattern
-    taskDISABLE_INTERRUPTS();
-    blinkLEDForever(LED_INIT_ERR);
-}
-
-#ifdef DEBUG
+#if DEBUG > 0
 // Mutex handle for UART access
 static SemaphoreHandle_t usart_mutex = NULL;
 
@@ -161,17 +143,10 @@ void createUsartMutex (void) {
  * 
  * A mutex ensures that this call (and hence printf calls) are thread safe.
  * 
- * If DEBUG is not defined the code compiles to a dummy function that does
- * nothing
+ * If DEBUG is zero the code compiles to a dummy function that does nothing
  */
 int _write(int file, char *ptr, int len) {
-#ifdef DEBUG
-    static int first = pdTRUE;
-    if (first) {
-        usart2_init ();
-        first = pdFALSE;
-    }
-
+#if DEBUG > 0
     // Check if the RTOS scheduler is running
     BaseType_t scheduler_running = (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED);
 
@@ -180,12 +155,8 @@ int _write(int file, char *ptr, int len) {
         xSemaphoreTake(usart_mutex, portMAX_DELAY);
     }
 
-    for (int i = 0; i < len; i++) {
-        // Wait until Transmit Data Register is empty (TXE bit 7)
-        while (!(USART2_ISR & (1 << 7)));
-        // Write byte to UART
-        USART2_TDR = (uint8_t)ptr[i];
-    }
+    // send the data
+    usart2_send (ptr, len);
     
     // Release mutex if acquired
     if (scheduler_running && usart_mutex != NULL) {
@@ -201,7 +172,7 @@ int _write(int file, char *ptr, int len) {
 #endif
 }
 
-#ifdef DEBUG
+#if DEBUG > 0
 static void usart2_init(void) {
     // 1. Enable GPIOA and USART2 clocks
     RCC_AHB2ENR |= (1 << 0);       // GPIOA clock
@@ -219,4 +190,71 @@ static void usart2_init(void) {
     // 4. Enable USART2 and Transmitter (UE bit 0, TE bit 3)
     USART2_CR1 |= (1 << 0) | (1 << 3);
 }
+
+/** 
+ * @brief direct access to the serial port that connects with the host
+ * 
+ * Only use this in a situation where FreeRTOS is not available or is
+ * compromised - this function doesn't use any FreeRTOS resources, but
+ * is not thread safe.
+ */
+void usart2_send(const char *ptr, int len) {
+    static int first = pdTRUE;
+    if (first) {
+        usart2_init ();
+        first = pdFALSE;
+    }
+
+    for (int i = 0; i < len; i++) {
+        // Wait until Transmit Data Register is empty (TXE bit 7)
+        while (!(USART2_ISR & (1 << 7)));
+        // Write byte to UART
+        USART2_TDR = (uint8_t)ptr[i];
+    }
+}
+
+/**
+ * @brief send a null terminated string to the debugger USART
+ * 
+ * Only use this in a situation where FreeRTOS is not available or is
+ * compromised - this function doesn't use any FreeRTOS resources, but
+ * is not thread safe.
+ */
+void usart2_send2(const char *ptr) {
+    usart2_send (ptr, strlen (ptr));
+}
+
+/**
+ * @brief print a label and a 32-bit value as 8 hex digits, over the debug USART
+ */
+void PrintHex32 (const char *label, uint32_t value) {
+    static const char hex_digits[] = "0123456789ABCDEF";
+    char string[13];
+    int pos = 0;
+    string[pos++] = '0';
+    string[pos++] = 'x';
+    for (int i = 0; i < 8; i++) {
+        string[pos++] = hex_digits[(value >> (28 - i * 4)) & 0xF];
+    }
+    string[pos] = '\0';
+
+    usart2_send2 (label);
+    usart2_send2 (" = ");
+    usart2_send2 (string);
+    usart2_send2 ("\r\n");
+}
+
 #endif /* DEBUG */
+
+/**
+ * @brief Update HAL's clock from FreeRTOS
+ */
+extern void xPortSysTickHandler (void);
+void SysTick_Handler (void) {
+    HAL_IncTick();   // always safe - just increments a counter
+
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        xPortSysTickHandler();   // only touch FreeRTOS once it's actually running
+    }
+}
+

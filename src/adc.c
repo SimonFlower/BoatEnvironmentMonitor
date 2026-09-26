@@ -8,9 +8,14 @@
  * @brief task that reads Sensor data from an ADC
  * @param pvParameters configuration parameters for the task in the form of a TaskCfg_t structure
  */
-void adcTask(void *pvParameters) {
+void ADCTask(void *pvParameters) {
+    configASSERT (pvParameters != NULL);
 
     TaskCfg_t *task_cfg = (TaskCfg_t *) pvParameters;
+    configASSERT (task_cfg->EG_trigger != NULL);
+    configASSERT (task_cfg->EG_sync != NULL);
+    configASSERT (task_cfg->results_queue != NULL);
+    configASSERT (task_cfg->EG_bitmask != 0);
     
     for (;;) {
         // Wait for trigger

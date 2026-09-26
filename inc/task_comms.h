@@ -1,10 +1,11 @@
-/* Structures used for communication between FreeRTOS tasks */
+/* Structures used for communication between FreeRTOS data collection tasks and the main task */
 #ifndef TASK_COMMS_H
 #define TASK_COMMS_H
 
 #include "FreeRTOS.h"
 #include "event_groups.h"
 #include "queue.h"
+#include "task.h"
 
 // An identifier for the type of data collection task
 typedef enum {TASK_ADC, TASK_DHT22} TaskType_t;

@@ -33,17 +33,25 @@ Software installation for ARM cross compiler using make for building code:
     stlink-tools
 ```
 
+If you want to debug the code, use ddd:
+
+```
+  sudo apt install -y ddd
+```
+
+Examples in this document assume you are using ddd for debugging.
+
 Software installation for a terminal emulator that will allow access to
-output from the Nucleo board over its USB serial port:
+debug output from the Nucleo board over its USB serial port:
 
 ```
   sudo apt install -y picocom
 ```
 
-Examples in this document assume you are using picocom to access the
-Nucleo board.
+Examples in this document assume you are using the picocom terminal emulator
+to access the Nucleo board.
 
-If you need an editor:
+If you need a source code editor:
 
 ```
   sudo apt install -y geany geany-plugins
@@ -69,7 +77,14 @@ To allow access to the serial port created by the Nucleo USB connection, add
 your user to the 'dialout' group:
 
 ```
-  sudo usermod -aG dialout $USER```
+  sudo usermod -aG dialout $USER
+```
+
+To allow access to the ST-LINK programmer:
+
+```
+  sudo usermod -aG plugdev $USER
+```
 
 ## Creating a FreeRTOS project
 
@@ -128,6 +143,7 @@ These projects provide C header files required for working with the STM32 hardwa
 ```
     git submodule add https://github.com/ARM-software/CMSIS_5.git drivers/CMSIS_5
     git submodule add https://github.com/STMicroelectronics/cmsis_device_l4.git drivers/cmsis_device_l4
+    git submodule add https://github.com/STMicroelectronics/stm32l4xx_hal_driver drivers/stm32l4xx_hal_driver
 ```
 
 ## Viewing debug output
@@ -149,3 +165,78 @@ was /dev/ttyACM0, connect to the Nucleo board like this:
 ```
   picocom -b 115200 /dev/ttyACM0 
 ```
+
+## Using the ST-LINK debugger
+
+The Nucleo-32 development board includes the ST-LINK debugger. To access
+the debugger, run openocd to connect to the ST-LINK, then run ddd to
+provide a friendly user iterface to the debugger.
+
+Run openocd as a background service. You need to do this each time you
+start the computer that runs your development environment. The configuration
+files are found in /usr/share/openocd/scripts/. This command will block
+the terminal where it's issued (unless you terminate it with '&' to place
+it in the background):
+
+```
+   openocd -f interface/stlink-v2-1.cfg -f target/stm32l4x.cfg
+```
+
+NOTE: Once openocd is running, don't use the "make flash" command,
+as the underlying st-flash program requires the same USB interface
+as openocd. Instead use the debuggers "load" command to upload a
+newly compiled program onto the board (see below for an example of
+using "load").
+
+Next run ddd, telling it where to find the program being used on
+the Nucleo-32 development board:
+
+```
+   ddd --debugger gdb-multiarch build/app.elf
+```
+
+Inside the ddd command console (at the "gdb" prompt) enter these commands:
+
+```
+    target remote localhost:3333    # connect to openocd
+    monitor reset halt              # restart
+    load                            # upload the program to the Nucleo board
+```
+
+You can now place graphical breakpoints directly on lines of code, 
+step through instructions, and view target RAM/registers.
+
+
+
+
+## Draft MQTT payload details
+
+Example:
+
+```
+{
+    "date": "yyyy-mm-ddThh:mm:ss",
+    "batteries": {
+        "1": "xx.xV",
+        "2": "xx.xV",
+        "3": "xx.xV"
+    },
+    "temperatures": {
+        "1": "xx.xC",
+        "2": "xx.xC",
+        "3": "xx.xC",
+        "4": "xx.xC",
+        "5": "xx.xC"
+    },
+    "humidities": {
+        "1": "xx.x%",
+        "2": "xx.x%",
+        "3": "xx.x%",
+        "4": "xx.x%",
+        "5": "xx.x%"
+    },
+    "mains_present": true
+}
+```
+
+Size about 0.5Kb. Allow another 0.5Kb for MQTT set up = 1Kb every 15 minutes, or about 100Kb per day or about 3.5Mb per month.

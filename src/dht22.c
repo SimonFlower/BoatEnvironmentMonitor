@@ -8,9 +8,14 @@
  * @brief task that reads Sensor data from a DHT22 1-wire protocol device
  * @param pvParameters configuration parameters for the task in the form of a TaskCfg_t structure
  */
-void dht22Task(void *pvParameters) {
+void DHT22Task(void *pvParameters) {
+    configASSERT (pvParameters != NULL);
 
     TaskCfg_t *task_cfg = (TaskCfg_t *) pvParameters;
+    configASSERT (task_cfg->EG_trigger != NULL);
+    configASSERT (task_cfg->EG_sync != NULL);
+    configASSERT (task_cfg->results_queue != NULL);
+    configASSERT (task_cfg->EG_bitmask != 0);
     
     for (;;) {
         // Wait for trigger

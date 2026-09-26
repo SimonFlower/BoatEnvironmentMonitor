@@ -10,6 +10,7 @@ MCU_FLAGS = -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 INCLUDES = -Iinc \
            -Idrivers/CMSIS_5/CMSIS/Core/Include \
            -Idrivers/cmsis_device_l4/Include \
+           -Idrivers/stm32l4xx_hal_driver/Inc \
            -IFreeRTOS/include \
            -IFreeRTOS/portable/GCC/ARM_CM4F
 
@@ -20,10 +21,14 @@ CFLAGS  = $(MCU_FLAGS) -g -Os -Wall $(INCLUDES) -DSTM32L432xx
 LDFLAGS = $(MCU_FLAGS) -T STM32L432KCXx_FLASH.ld -Wl,--gc-sections -u _printf_float --specs=nano.specs --specs=nosys.specs
 
 # Source files
+HAL_SRC = $(wildcard drivers/stm32l4xx_hal_driver/Src/*.c)
 SRCS = src/main.c \
        src/led.c \
        src/adc.c \
        src/dht22.c \
+       src/modem.c \
+       src/system_funcs.c \
+       src/fault_handlers.c \
        src/startup_stm32l432kc.s \
        drivers/cmsis_device_l4/Source/Templates/system_stm32l4xx.c \
        FreeRTOS/tasks.c \
@@ -33,7 +38,7 @@ SRCS = src/main.c \
        FreeRTOS/event_groups.c \
        FreeRTOS/portable/GCC/ARM_CM4F/port.c \
        FreeRTOS/portable/MemMang/heap_4.c \
-       src/system_funcs.c
+       $(HAL_SRC)
 
 # Object files output mapping
 OBJS = $(addprefix build/, $(notdir $(addsuffix .o, $(basename $(SRCS)))))
@@ -41,7 +46,12 @@ OBJS = $(addprefix build/, $(notdir $(addsuffix .o, $(basename $(SRCS)))))
 TARGET = build/app
 
 # Search paths for source files
-vpath %.c src drivers/cmsis_device_l4/Source/Templates FreeRTOS FreeRTOS/portable/GCC/ARM_CM4F FreeRTOS/portable/MemMang
+vpath %.c src \
+		  drivers/cmsis_device_l4/Source/Templates \
+		  drivers/stm32l4xx_hal_driver/Src \
+		  FreeRTOS \
+		  FreeRTOS/portable/GCC/ARM_CM4F \
+		  FreeRTOS/portable/MemMang
 vpath %.s src
 
 all: $(TARGET).bin

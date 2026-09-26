@@ -77,7 +77,8 @@ g_pfnVectors:
   .word Default_Handler     /* DebugMon */
   .word 0
   .word xPortPendSVHandler  /* FreeRTOS PendSV Handler */
-  .word xPortSysTickHandler /* FreeRTOS SysTick Handler */
+  .word SysTick_Handler     /* combined HAL tick / FreeRTOS SysTick Handler, in system_funcs.c - replaces: */
+/*  .word xPortSysTickHandler /* FreeRTOS SysTick Handler */
 
   .weak vPortSVCHandler
   .thumb_set vPortSVCHandler, Default_Handler

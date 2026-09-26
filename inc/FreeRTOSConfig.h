@@ -1,6 +1,11 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+// AssertFailed is defined in fault_handlers.c - the function prototype is
+// needed here because it is used ina FreeRTOS macro definition (below)
+__attribute__((noreturn))
+void AssertFailed(const char *file, uint32_t line);
+
 #include <stdint.h>
 extern uint32_t SystemCoreClock;
 
@@ -58,6 +63,11 @@ extern uint32_t SystemCoreClock;
 #define INCLUDE_xTaskGetSchedulerState          1
 
 /* Define configASSERT for debug builds */
-#define configASSERT( x ) if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
+#define configASSERT(x)                         \
+    do {                                        \
+        if ((x) == 0) {                         \
+            AssertFailed(__FILE__, __LINE__);   \
+        }                                       \
+    } while (0)
 
 #endif /* FREERTOS_CONFIG_H */

@@ -1,0 +1,70 @@
+/* various handlers for FreeRTOS fault conditions */
+
+#include <stdlib.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
+
+#include "stm32l432xx.h"
+
+#include "led.h"
+#include "system_funcs.h"
+
+/**
+ * @brief a FreeRTOS configASSERT handler
+ * @return does not return
+ */
+__attribute__((noreturn))
+void AssertFailed(const char *file, uint32_t line) {
+#if DEBUG > 0
+    usart2_send2 ("ASSERT: ");
+    usart2_send2 (file);
+    usart2_send2 (":");
+    char string [15];
+    usart2_send2 (itoa (line, string, 10));
+    usart2_send2 ("\r\n");
+
+    __BKPT(0);
+#endif
+
+    taskDISABLE_INTERRUPTS();
+    BlinkLEDForever (LED_ASSERT, pdFALSE);
+}
+
+/**
+ * @brief Hard fault handler for debugging
+ */
+void HardFault_Handler(void) {
+    usart2_send2 ("Hard fault handler called\r\n");
+
+    // Disable interrupts and signal fault via LED pattern
+    taskDISABLE_INTERRUPTS();
+    BlinkLEDForever (LED_HARD_FAULT, pdFALSE);
+}
+
+/**
+ * @brief Called by FreeRTOS when pvPortMalloc fails to allocate memory 
+ */
+void vApplicationMallocFailedHook(void) {
+    usart2_send2 ("Malloc failure handler called\r\n");
+
+    // Disable interrupts and signal fault via LED pattern
+    taskDISABLE_INTERRUPTS();
+    BlinkLEDForever(LED_INIT_ERR, pdFALSE);
+}
+
+/* Called by FreeRTOS when a task overflows its stack */
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
+    (void)xTask;
+    
+#if DEBUG >= 1
+    usart2_send2 ("STACK OVERFLOW: ");
+    usart2_send2 (pcTaskName);
+    usart2_send2 ("\r\n");
+#endif
+    
+    // Disable interrupts and signal fault via LED pattern
+    taskDISABLE_INTERRUPTS();
+    BlinkLEDForever(LED_HARD_FAULT, pdFALSE);
+}
+

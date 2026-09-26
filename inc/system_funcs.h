@@ -17,10 +17,11 @@ int _read(int file, char *ptr, int len);
 int _getpid(void);
 int _kill(int pid, int sig);
 int _write(int file, char *ptr, int len);
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName);
-void vApplicationMallocFailedHook(void);
-#ifdef DEBUG
+#if DEBUG > 0
 void createUsartMutex (void);
+void usart2_send (const char *ptr, int len);
+void usart2_send2 (const char *ptr);
+void PrintHex32 (const char *label, uint32_t value);
 #endif
 
 #endif /* SYSTEM_FUNCS_H */

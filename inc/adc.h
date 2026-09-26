@@ -2,6 +2,6 @@
 #define ADC_H
 
 // forward declarations
-void adcTask(void *pvParameters);
+void ADCTask(void *pvParameters);
 
 #endif /* ADC_H */

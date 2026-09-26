@@ -9,11 +9,13 @@
 typedef enum {
     LED_SUCCESS = 1,
     LED_INIT_ERR = 2, 
-    LED_HARD_FAULT = 3 
+    LED_HARD_FAULT = 3,
+    LED_ASSERT = 4
 } LEDPattern_t;
 
 /* forward declarations */
-void blinkLEDForever (LEDPattern_t pattern);
-void blinkLED (LEDPattern_t pattern);
+__attribute__((noreturn))
+void BlinkLEDForever (LEDPattern_t pattern, unsigned char use_free_rtos);
+void BlinkLED (LEDPattern_t pattern, unsigned char use_free_rtos);
 
 #endif /* LED_H */
