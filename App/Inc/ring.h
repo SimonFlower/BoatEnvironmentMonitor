@@ -11,7 +11,7 @@
 typedef enum {RBGL_OK, RBGL_NA, RBGL_OVERFLOW} RBGLReturn_t;
 
 typedef struct {
-    char buf[RING_SIZE];
+    volatile char buf[RING_SIZE];
     volatile uint16_t head;
     volatile uint16_t tail;
     volatile uint32_t overflow_count;

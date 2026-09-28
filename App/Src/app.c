@@ -5,34 +5,45 @@
 #include <stdbool.h>
 
 #include "debug.h"
-#include "modem.h"
+#include "modem_at.h"
 #include "app_iwdg.h"
 #include "led.h"
 #include "app.h"
 
+// TODO: configuration data
+#define APN "TM"
+
 static void ProgressCallback (void);
+static void WatchdogCallback (void);
 
 void App (void) {
 #if DEBUG >= 1
-	printf ("Boat Environment Monitor starting\r\n");
+	printf ("\r\nBoat Environment Monitor starting\r\n");
 #endif
 
-	// Power the modem on
-	ModemInit ();
-	ModemPower (true);
-	
-	// Test the modem
+	// Start the modem
+	ModemStart ();
 	ModemTest (5, ProgressCallback);
+	if (ModemIPConnect (APN)) {
+		ModemIPDisconnect ();
+	}
 
-	BlinkLEDForever (LED_SUCCESS);
-	
+#if DEBUG >= 2
+	printf ("Program finished, idling\r\n");
+#endif
+	BlinkLEDForever (LED_IDLE, WatchdogCallback);	
 }
 
 void AppError (void) {
-	BlinkLEDForever (LED_HAL_ERROR);
+	BlinkLEDForever (LED_HAL_ERROR, WatchdogCallback);
 }
 
 static void ProgressCallback (void) {
 	BlinkLED (LED_SUCCESS);
 	PingIWDG ();
 }
+
+static void WatchdogCallback (void) {
+	PingIWDG ();
+}
+	

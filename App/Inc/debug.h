@@ -11,7 +11,7 @@
 
 #define DEBUG 5
 
-#if debug > 0
+#if DEBUG > 0
 void debug_init (void);
 int __io_putchar(int ch);
 #endif

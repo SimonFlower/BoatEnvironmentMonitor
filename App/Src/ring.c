@@ -5,7 +5,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "stm32l4xx.h"
+
 #include "ring.h"
+
+// Hardware Data Memory Barrier macro for ARM Cortex-M
+#ifndef memory_barrier
+#define memory_barrier() __DMB()
+#endif
 
 /**
  * @brief Intiailise a ring buffer
@@ -22,7 +29,6 @@ void RingBufferInit (RingBuffer_t *rb) {
  * @param rb the ring buffer
  * @param byte the byte to add
  * @retval true if the byte was added */
-#define memory_barrier() __asm__ __volatile__("" ::: "memory")
 bool RingBufferPut (RingBuffer_t *rb, char byte) {
     uint16_t next = (rb->head + 1) % RING_SIZE;
 
@@ -30,16 +36,16 @@ bool RingBufferPut (RingBuffer_t *rb, char byte) {
         rb->overflow_count++;
         return false;
     }
-
     rb->buf[rb->head] = byte;
-	memory_barrier(); // Guarantees buf write completes before head is updated
+	// Ensure byte write to buf is committed to RAM before head index updates
+    memory_barrier();
     rb->head = next;
 
     return true;
 }
 
 /**
- * @brief get a byte to the ring buffer
+ * @brief get a byte from the ring buffer
  * @param rb the ring buffer
  * @param byte the byte to retrieve
  * @retval true if the byte was retrieved */
@@ -47,6 +53,8 @@ bool RingBufferGet (RingBuffer_t *rb, char *byte) {
     if (rb->head == rb->tail) return false;
 
     *byte = rb->buf[rb->tail];
+	// Ensure byte read completes before tail index updates
+    memory_barrier();
     rb->tail = (rb->tail + 1) % RING_SIZE;
 
     return true;
@@ -55,7 +63,8 @@ bool RingBufferGet (RingBuffer_t *rb, char *byte) {
 /**
  * @brief find the number of bytes in the buffer
  * @param rb the ring buffer
- * @retval the number of bytes */
+ * @retval the number of bytes 
+ */
 uint16_t RingBufferAvailable (RingBuffer_t *rb) {
     if (rb->head >= rb->tail)
         return rb->head - rb->tail;
@@ -83,6 +92,7 @@ RBGLReturn_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size, bool 
     // Snapshot head and tail atomically to prevent race conditions
     uint16_t snap_head = rb->head;
     uint16_t snap_tail = rb->tail;
+	memory_barrier();
 
     // Calculate available bytes based on snapshot
     uint16_t available = (snap_head >= snap_tail) 
@@ -99,6 +109,7 @@ RBGLReturn_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size, bool 
         if (ch == '\n') {
             line[out_idx] = '\0';
             // Consumer safely updates tail without caring if head changed concurrently
+			memory_barrier();
             rb->tail = (pos + 1) % RING_SIZE;
             return RBGL_OK;
         } else if (ch == '\r') {
@@ -107,6 +118,7 @@ RBGLReturn_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size, bool 
             if (out_idx >= size - 1) {
                 if (discard_on_overflow) {
 					// Consumer safely updates tail without caring if head changed concurrently
+					memory_barrier();
                     rb->tail = (pos + 1) % RING_SIZE;
                 }
                 line[out_idx] = '\0';

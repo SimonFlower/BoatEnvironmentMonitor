@@ -13,7 +13,8 @@ CUBEMX_DIR = CubeMX
 
 # Custom application paths (absolute paths)
 APP_C_SOURCES = $(shell pwd)/App/Src/app.c \
-			    $(shell pwd)/App/Src/modem.c \
+			    $(shell pwd)/App/Src/modem_at.c \
+			    $(shell pwd)/App/Src/modem_ll.c \
 			    $(shell pwd)/App/Src/ring.c \
 			    $(shell pwd)/App/Src/debug.c \
 			    $(shell pwd)/App/Src/app_iwdg.c \

@@ -22,6 +22,13 @@ void debug_init (void) {
  * @brief an implementation of __io_putchar that send characters to the serial port
  * @param ch the character to send
  * @retval the character
+ * 
+ * @warning Thread-Safety & Execution Context:
+ *          This function uses blocking HAL_UART_Transmit calls with HAL_MAX_DELAY.
+ *          DO NOT call printf(), __io_putchar(), or any debug logging routines 
+ *          from within Interrupt Service Routines (ISRs) or high-priority callbacks.
+ *          Doing so can stall interrupt handling, trigger watchdog resets, or 
+ *          cause stack overflow. 
  */
 int __io_putchar(int ch) {
     // Transmit 1 character via HAL UART with a brief timeout

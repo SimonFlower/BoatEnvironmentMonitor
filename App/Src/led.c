@@ -1,12 +1,12 @@
 /** Control the user LED - this module contains its own hardware initialisation so
  * that it will work at any time, even before the main program hardware initialisation has run */
 
+#include <stdio.h>
 #include <stdbool.h>
 
 #include "stm32l432xx.h"
 
 #include "debug.h"
-#include "app_iwdg.h"
 #include "led.h"
 
 // times for the blink and pause between blink, in mS
@@ -23,15 +23,18 @@ static void LEDDelay (int ms);
  * This is used by the program to indicate various conditions
  * 
  * @param delay the on/off time in mS
+ * @param blink_callback a function that is called for each blink repeat
  * @return does not return
  */
 __attribute__((noreturn))
-void BlinkLEDForever (LEDPattern_t pattern) {
+void BlinkLEDForever (LEDPattern_t pattern, void (*blink_callback)(void)) {
     // Forever...
     for (;;) {
         BlinkLED (pattern);
         LEDDelay (PAUSE_TIME);
-        PingIWDG ();
+		if (blink_callback != NULL) {
+            blink_callback();	
+        }	
     }
 }
 
