@@ -1,9 +1,7 @@
-
-
-#ifndef DEBUG_H
-#define DEBUG_H
+#ifndef APP_H
+#define APP_H
 
 void App (void);
 void AppError (void);
 
-#endif
+#endif /* APP_H */

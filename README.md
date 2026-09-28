@@ -1,4 +1,4 @@
-f## Introduction
+## Introduction
 
 This project contains software to run an environmental monitor for a boat
 and send the data over a mobile modem to an MQTT broker. The computer used
@@ -16,6 +16,17 @@ USB is connected two devices will be created on the host computer:
 
 This project was built using Linux Debian 13. All examples in this
 documentation use Linux commands.
+
+## Useful documentatation
+
+- STML432 processor manual: 
+  https://www.st.com/resource/en/reference_manual/rm0394-stm32l41xxx42xxx43xxx44xxx45xxx46xxx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf
+- Nucleo STML432 development board manual:
+  https://www.st.com/resource/en/user_manual/um1956-stm32-nucleo32-boards-mb1180-stmicroelectronics.pdf
+- Clipper 4G LTE Modem board schematic:
+  https://cdn.shopify.com/s/files/1/0174/1800/files/lte_breakout_schematic.pdf
+- A7682E modem module hardware and software manuals (downloads require login):
+  https://en.simcom.com/product/A7683E.html
 
 ## Installing and configuring build software
 

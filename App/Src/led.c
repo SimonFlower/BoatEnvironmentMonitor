@@ -10,7 +10,7 @@
 #include "led.h"
 
 // times for the blink and pause between blink, in mS
-#define FOR_LOOPS_PER_MS	3000
+#define FOR_LOOPS_PER_MS	2500
 #define BLINK_TIME  		200
 #define PAUSE_TIME  		2000
 
