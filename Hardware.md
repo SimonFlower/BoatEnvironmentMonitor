@@ -84,42 +84,49 @@ near zero during sleep, combine modem PSM mode with hardware power-gating:
 
 ## Nucleo-L432KV Pin Allocations
 
-TODO: Update from schematic
-TODO: check pin usage with AI
+TODO: Update schematic
 TODO: possible fault in schematic - check Nucleo pin out on schematic against documentation (especially end of CN4)
-- Analog Input Lines (3 required)
-  - PA0 (Arduino A0 / CN4 Pin 5)
-  - PA1 (Arduino A1 / CN4 Pin 6)
-  - PA3 (Arduino A2 / CN4 Pin 7) - TODO: !DUPLICATED with modem!
-- Digital Input Lines (5 required)
+TODO: remove solder bridges SB16 and SB18 on Nucleo board
+- Analog Input Lines (4 required, ideally allowing automated sequential reading)
+  - PA3 (Arduino A2 / CN4 Pin 10)
+  - PA4 (Arduino A3 / CN4 Pin 9)
+  - PA5 (Arduino A4 / CN4 Pin 8) - *** NOTE bridged to PB7 by solder bridge SB18 ***
+  - PA6 (Arduino A5 / CN4 Pin 7) - *** NOTE bridged to PB6 by solder bridge SB16 ***
+- Digital Input Lines (5 required, 5V tolerant, ideally on a single register to allow simultaneous sampling)
   - PB0 (Arduino D3 / CN3 Pin 6)
-  - PB1 (Arduino D6 / CN3 Pin 9)
-  - PC14 (Arduino D7 / CN3 Pin 10)
-  - PC15 (Arduino D8 / CN3 Pin 11)
-  - PA8 (Arduino D9 / CN3 Pin 12)
+  - PB4 (Arduino D12 / CN3 Pin 15)
+  - PB5 (Arduino D11 / CN3 Pin 14)
+  - PB6 (Arduino D5 / CN3 Pin 8) - *** NOTE bridged to PA6 by solder bridge SB16 ***
+  - PB7 (Arduino D4 / CN3 Pin 7) - *** NOTE bridged to PA5 by solder bridge SB18 ***
 - N-FET Gate Control Output (1 line)
-  - PA12 (Arduino D2 / CN3 Pin 5)
-- Clipper LTE Modem on USART1 (USART2 is the ST-LINK)
-  - PA9 - Modem Rx
-  - PA10 - Modem Tx
-  - PA8 - PWRKEY power control of the modem board
-  - PA11 - RESET the modem board
-- Unused Header Pins Leftover for Other Functions
-  - I2C1 Bus: PB6 (D5) and PB7 (D4) remain open if you ever need an external
-    display, RTC, or sensors.
-  - SPI1 Bus: PA11 (D10), PB5 (D11), and PB4 (D12) remain available for external
-    SPI flash or display modules.
-  - UART Serial Debugging: PA9 (D1) and PA10 (D0) remain free.
+  - PA7 (Arduino A6 / CN4 Pin 6)
+- Clipper LTE Modem on UART1 (UART2 is the ST-LINK)
+  - PA9 (Arduino D1 / CN3 Pin 1) - Modem Rx
+  - PA10 (Arduino D0 / CN3 Pin 2) - Modem Tx
+  - PA8 - (Arduino D9 / CN3 Pin 12) PWRKEY power control of the modem board
+  - PA11 - (Arduino D10 / CN3 Pin 13) RESET the modem board
+- Pins used internally on the Nucleo board
+  - PB3 - (Arduino D13 / CN4 Pin 15) User LED
+  - PA13 - (NC) ST-LINK debugger UART2
+  - PA14 - (NC) ST-LINK debugger UART2
+  - PA2 - (Arduino A7 / CN4 Pin 5) UART2 Tx for "console" IO
+  - PA15 - (NC) UART2 Rx for "console" IO
+  - PC14 - (Arduino D7 / CN3 Pin 10) 32.768 KHz oscillator
+  - PC15 - (Arduino D8 / CN3 Pin 11) 32.768 KHz oscillator
 
 Connections from Clipper (on the left) to Nucleo-L432KC (on the right):
-Vin -> 5V
-VDDIO -> 3.3V
-Tx -> PA10
-Netlight -> Not connected
-RESET -> PA11
-Rx -> PA9
-PWRKEY -> PA8
-Gnd -> Gnd
+- Vin -> 5V
+- VDDIO -> 3.3V
+- Tx -> PA10 (Arduino D0 / CN3 Pin 2)
+- Netlight -> Not connected
+- RESET -> PA11 (Arduino D10 / CN3 Pin 13)
+- Rx -> PA9 (Arduino D1 / CN3 Pin 1)
+- PWRKEY -> PA8 (Arduino D9 / CN3 Pin 12)
+- Gnd -> Gnd
+
+Notes from CubeMX configuration:
+- TIM6 configured to use as a timer for bit banging
+- IWDG configuration to restart system unless HAL_IWDG_Refresh() is called every 32(?) seconds
 
 ## Moving from development to production
 

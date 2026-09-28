@@ -11,7 +11,7 @@ replace_tabs=false
 
 [indentation]
 indent_width=4
-indent_type=0
+indent_type=1
 indent_hard_tab_width=8
 detect_indent=false
 detect_indent_width=false
@@ -21,50 +21,33 @@ indent_mode=2
 name=BoatEnvironmentalMonitor
 base_path=/home/smf/software/BoatEnvironmentalMonitor
 description=
-file_patterns=
 
 [long line marker]
 long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=5
-FILE_NAME_0=379;None;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
-FILE_NAME_1=4117;Markdown;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
-FILE_NAME_2=1301;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fmakefile;0;4
-FILE_NAME_3=11307;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fmain.c;0;4
-FILE_NAME_4=7566;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fmodem.c;0;4
-FILE_NAME_5=2348;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fled.c;0;4
-FILE_NAME_6=5713;Markdown;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FHardware.md;0;4
-FILE_NAME_7=6105;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fsystem_funcs.c;0;4
-FILE_NAME_8=52;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fmodem.h;0;4
-FILE_NAME_9=398;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fled.h;0;4
-FILE_NAME_10=117;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fadc.c;0;4
-FILE_NAME_11=482;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2FFreeRTOSConfig.h;0;4
-FILE_NAME_12=153;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fdht22.c;0;4
-FILE_NAME_13=224;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Ftask_comms.h;0;4
-FILE_NAME_14=10343;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FFreeRTOS%2Fportable%2FGCC%2FARM_CM4F%2Fport.c;0;4
-FILE_NAME_15=400;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fdebug.h;0;4
-FILE_NAME_16=626;C++;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Finc%2Fsystem_funcs.h;0;4
-FILE_NAME_17=2099;C;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Ffault_handlers.c;0;4
-FILE_NAME_18=1707;ASM;0;EUTF-8;0;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fsrc%2Fstartup_stm32l432kc.s;0;4
+current_page=1
+FILE_NAME_0=404;None;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
+FILE_NAME_1=1357;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FMakefile;0;4
+FILE_NAME_2=368;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FMakefile;0;4
+FILE_NAME_3=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fadc.c;0;4
+FILE_NAME_4=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fdma.c;0;4
+FILE_NAME_5=1040;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fsyscalls.c;0;4
+FILE_NAME_6=136;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fdebug.c;0;4
+FILE_NAME_7=420;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fdebug.h;0;4
+FILE_NAME_8=304;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fled.h;0;4
+FILE_NAME_9=369;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fled.c;0;4
+FILE_NAME_10=540;Sh;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2Fpatch_cubemx_makefile.sh;0;4
+FILE_NAME_11=5170;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
+FILE_NAME_12=956;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fusart.c;0;4
+FILE_NAME_13=5418;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FHardware.md;0;4
+FILE_NAME_14=189;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp.c;0;4
+FILE_NAME_15=74;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fapp.h;0;4
+FILE_NAME_16=2747;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fmain.c;0;4
+FILE_NAME_17=945;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fiwdg.c;0;4
+FILE_NAME_18=38;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fapp_iwdg.h;0;4
+FILE_NAME_19=361;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp_iwdg.c;0;4
 
 [VTE]
 last_dir=/home/smf
-
-[build-menu]
-NF_01_LB=Upload to Nucleo
-NF_01_CM=make flash
-NF_01_WD=%p
-NF_02_LB=Clean
-NF_02_CM=make clean
-NF_02_WD=%p
-NF_03_LB=
-NF_03_CM=
-NF_03_WD=
-EX_00_LB=
-EX_00_CM=
-EX_00_WD=
-NF_00_LB=_Make
-NF_00_CM=make
-NF_00_WD=%p

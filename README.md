@@ -1,4 +1,4 @@
-## Introduction
+f## Introduction
 
 This project contains software to run an environmental monitor for a boat
 and send the data over a mobile modem to an MQTT broker. The computer used
@@ -19,7 +19,21 @@ documentation use Linux commands.
 
 ## Installing and configuring build software
 
-Software installation for ARM cross compiler using make for building code:
+The hardware is configured and the routines to access the STM32L432 resources
+are created using ST Microelectronics CubeMX software. Download
+here: https://www.st.com/en/development-tools/stm32cubemx.html. The downloaded
+zip contains a README describing how to install the software. The software can
+be installed to a user (un-privleged) location. The state of the CubeMX project
+is stored in the file BoatEnvironmentalMonitor.ioc.
+
+CubeMX manages installation of all library software needed by the project.
+When hardware has been configured, you can get CubeMX to generate C source code with
+placeholders for writing the application code. Provided you use these placeholders,
+updates to hardware configuration can be written out as updated source code by CubeMX.
+This CubeMX configuration is set to use "make" as the build tool - CubeMX also
+manages the project's Makefile.
+
+The following software is needed for building and debugging the program:
 
 ```
   sudo apt install -y \
@@ -30,26 +44,14 @@ Software installation for ARM cross compiler using make for building code:
     binutils-arm-none-eabi \
     gdb-multiarch \
     openocd \
-    stlink-tools
+    stlink-tools \
+    ddd \
+    picocom
 ```
 
-If you want to debug the code, use ddd:
-
-```
-  sudo apt install -y ddd
-```
-
-Examples in this document assume you are using ddd for debugging.
-
-Software installation for a terminal emulator that will allow access to
-debug output from the Nucleo board over its USB serial port:
-
-```
-  sudo apt install -y picocom
-```
-
-Examples in this document assume you are using the picocom terminal emulator
-to access the Nucleo board.
+Examples in this document assume you are using ddd for debugging and
+picocom as a terminal emulator that will allow access to
+'console' output from the Nucleo board over its USB serial port:
 
 If you need a source code editor:
 
@@ -86,65 +88,52 @@ To allow access to the ST-LINK programmer:
   sudo usermod -aG plugdev $USER
 ```
 
-## Creating a FreeRTOS project
-
-This project was created like this.
-
-```
-    mkdir BoatEnvironmentalMonitor
-    cd BoatEnvironmentalMonitor
-    git init
-```
+## Project structure
 
 All commands in this README assume a current directory of "BoatEnvironmentalMonitor".
 
-Project structure:
+CubeMX creates this structure:
+
+```
+    BoatEnvironmentMonitor/
+    ├── CubeMX
+		├── Makefile
+		├── STM32L432KCXx_FLASH.ld			
+		├── startup_stm32l432kc.s
+		├── Core/
+		│   ├── Inc/					(Generated header .h files)
+		│   ├── Src/					(Generated source .c files)
+		├── Drivers/					(ST Microelectronics libraries)    
+			├── BSP                     (Board support for Nucleo development board)
+			├── CMSIS                   (ST Microelectronics STM32L432 definitions)
+			├── STM32L4xx_HAL_Driver    (ST Microelectronics HAL definitions)
+```
+
+All of the files in these folders are managed by the CubeMX. Files in these
+folders should only be modified in sections marked for user code by CubeMX.
+Note that the program's main() function is in CubeMX/Core/Inc/main.c.
+
+Source code not managed by CubeMX is here:
 
 ```
     BoatEnvironmentalMonitor/
-    ├── makefile
-    ├── STM32L432KCXx_FLASH.ld
-    ├── inc/
-    │   ├── FreeRTOSConfig.h
-    ├── src/
-    │   ├── main.c
-    │   ├── startup_stm32l432kc.s
-    ├── drivers/
-    │   ├── CMSIS_5                (ARM definitinions)
-    │   ├── cmsis_device_l4        (ST Microelectronics definitIons)
-    └── FreeRTOS/                  (FreeRTOS Kernel source directory - git submodule)
-        ├── include/                (Header files: task.h, queue.h, etc.)
-        ├── tasks.c
-        ├── queue.c
-        ├── list.c
-        ├── timers.c
-        ├── portable/
-        │   ├── GCC/
-        │   │   └── ARM_CM4F/       (Cortex-M4 Port for GCC)
-        │   │       ├── port.c
-        │   │       └── portmacro.h
-        │   └── MemMang/
-        │       └── heap_4.c        (Heap memory allocator)
+    ├── Makefile
+    ├── Inc/					(Application header .h files)
+    ├── Src/					(Application source .c files)
 ```
 
+## Building the software
 
-## Installing FreeRTOS
-
-To install FreeRTOS into the project:
-
-```
-    git submodule add https://github.com/FreeRTOS/FreeRTOS-Kernel.git FreeRTOS
-```
-
-## Installing ARM and STM32 definitions
-
-These projects provide C header files required for working with the STM32 hardware.
+To build the software, set your current directory to the top level project
+folder and type:
 
 ```
-    git submodule add https://github.com/ARM-software/CMSIS_5.git drivers/CMSIS_5
-    git submodule add https://github.com/STMicroelectronics/cmsis_device_l4.git drivers/cmsis_device_l4
-    git submodule add https://github.com/STMicroelectronics/stm32l4xx_hal_driver drivers/stm32l4xx_hal_driver
+	make clean		# remove any previous build artefacts
+	make			# build the software
+	make flash		# upload the image to the Nucleo board
 ```
+
+The build artefacts are in CubeMX/build/.
 
 ## Viewing debug output
 
