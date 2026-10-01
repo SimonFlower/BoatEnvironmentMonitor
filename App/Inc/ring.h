@@ -18,6 +18,7 @@ typedef struct {
 } RingBuffer_t;
 
 void RingBufferInit (RingBuffer_t *rb);
+void RingBufferClear (RingBuffer_t *rb);
 bool RingBufferPut (RingBuffer_t *rb, char byte);
 bool RingBufferGet (RingBuffer_t *rb, char *byte);
 uint16_t RingBufferAvailable (RingBuffer_t *rb);

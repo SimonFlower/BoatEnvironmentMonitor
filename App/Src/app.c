@@ -13,7 +13,6 @@
 // TODO: configuration data
 #define APN "TM"
 
-static void ProgressCallback (void);
 static void WatchdogCallback (void);
 
 void App (void) {
@@ -22,9 +21,13 @@ void App (void) {
 #endif
 
 	// Start the modem
-	ModemStart ();
-	ModemTest (5, ProgressCallback);
-	if (ModemIPConnect (APN)) {
+	ModemStatus_t modem_status;
+	ModemStart (WatchdogCallback);
+	if (! ModemTest (5))
+		BlinkLEDForever (LED_MODEM_ERR, WatchdogCallback);	
+	if (! ModemGetStatus (&modem_status))
+		BlinkLEDForever (LED_MODEM_ERR, WatchdogCallback);	
+	if (ModemIPConnect (&modem_status, APN)) {
 		ModemIPDisconnect ();
 	}
 
@@ -36,11 +39,6 @@ void App (void) {
 
 void AppError (void) {
 	BlinkLEDForever (LED_HAL_ERROR, WatchdogCallback);
-}
-
-static void ProgressCallback (void) {
-	BlinkLED (LED_SUCCESS);
-	PingIWDG ();
 }
 
 static void WatchdogCallback (void) {

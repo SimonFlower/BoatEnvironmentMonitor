@@ -23,17 +23,17 @@ static void LEDDelay (int ms);
  * This is used by the program to indicate various conditions
  * 
  * @param delay the on/off time in mS
- * @param blink_callback a function that is called for each blink repeat
+ * @param blink_cb a function that is called for each blink repeat
  * @return does not return
  */
 __attribute__((noreturn))
-void BlinkLEDForever (LEDPattern_t pattern, void (*blink_callback)(void)) {
+void BlinkLEDForever (LEDPattern_t pattern, void (*blink_cb)(void)) {
     // Forever...
     for (;;) {
         BlinkLED (pattern);
         LEDDelay (PAUSE_TIME);
-		if (blink_callback != NULL) {
-            blink_callback();	
+		if (blink_cb != NULL) {
+            blink_cb();	
         }	
     }
 }

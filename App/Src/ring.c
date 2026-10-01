@@ -25,6 +25,15 @@ void RingBufferInit (RingBuffer_t *rb) {
 }
 
 /**
+ * @brief Empty a ring buffer
+ * @param rb the buffer to empty
+ */
+void RingBufferClear (RingBuffer_t *rb) {
+    rb->head = 0;
+    rb->tail = 0;
+}
+
+/**
  * @brief add a byte to the ring buffer
  * @param rb the ring buffer
  * @param byte the byte to add

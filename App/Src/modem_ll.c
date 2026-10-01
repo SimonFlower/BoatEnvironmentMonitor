@@ -1,9 +1,15 @@
 /** Low level functions for managing the Clipper LGE 4G modem
+ * 
+ * Two sets of functions exist for each modem operation that sends and
+ * receives data. Those with the suffix "DT" use the default timeout
+ * values specified when calling ModemInit(). This without the suffix
+ * must supply explicit timeout values
  */
 
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "stm32l4xx_hal.h"
 #include "main.h"
@@ -11,14 +17,37 @@
 #include "debug.h"
 #include "ring.h"
 #include "modem_ll.h"
+#include "utils.h"
 
-// the maximum length of a line received by the ModemExpect function
-#define MODEM_EXPECT_LINE_LEN	256
+// some timing contants
+#define PWRKEY_ON_PULSE_WIDTH	100
+#define PWRKEY_OFF_PULSE_WIDTH	3000
+#define PWRKEY_TIME_TILL_ON		6000
+#define PWRKEY_TIME_TILL_OFF	4000
+#define PWRKEY_IDLE_CHECK		500
+#define RESET_PULSE_WIDTH		2500
+#define RESET_TIME_TILL_READY	3000
+#define RESET_IDLE_CHECK		500
+
+// the maximum length of lines sent by ModemSendCmd() and received by ModemExpect()
+#define MODEM_TX_MAX_LEN 		256
+#define MODEM_RX_MAX_LEN		256
+
+// transmit and receive buffers for sending commands to the modem
+// and receiving responses from it
+static char tx_buffer [MODEM_TX_MAX_LEN];
+static char rx_buffer [MODEM_RX_MAX_LEN];
+static char rx_stored_buffer [MODEM_RX_MAX_LEN];
+
+// default timeout values (in mS)
+uint32_t default_wfi_timeout;
+uint32_t default_tx_timeout;
+uint32_t default_rx_timeout;
 
 // Defined in CubeMX/Core/Src/usart.c
 extern UART_HandleTypeDef huart1;
 
-// A flag showing whether the Modem has been initialise
+// A flag showing whether the Modem has been initialised
 static volatile bool modem_initialised = false;
 
 // The ring buffer used to receive data from DMA
@@ -28,20 +57,46 @@ static RingBuffer_t ring_buffer;
 // This is *only* to be used by the DMA callback
 #define DMA_BUFFER_SIZE	256
 static uint8_t dma_rx_buffer[DMA_BUFFER_SIZE];
-static uint16_t old_dma_pos; 	// Tracks last processed DMA position
+static volatile uint16_t old_dma_pos; 	// Tracks last processed DMA position
+
+// a callback the is called periodically during lengthy operations
+// could be NULL
+static void (*periodic_cb)(void);
+
+// private forward declarations
+static bool ModemLLSendCommandV (uint32_t timeout, const char *fmt, va_list args);
+static bool ModemLLTransactV(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+		        			 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+		        			 const char *fmt, va_list args);
  
 /**
  * @brief set up DMA transfer with modem
+ * @param dwfi_timeout the default timeout for ModemWaitForIdle()
+ * @param dtx_timeout the default timeout for ModemSendCommand()
+ * @param drx_timeout the default timeout for ModemReceiveLine()
+ * @param pcb a callback that is called periodically during lengthy operations
+ *        can be NULL
  */
-void ModemLLInit(void) {
+void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void)) {
 	if (! modem_initialised) {
+		// store parameters
+		default_wfi_timeout = dwfi_timeout;
+		default_tx_timeout = dtx_timeout;
+		default_rx_timeout = drx_timeout;
+		periodic_cb = pcb;
+		
+		tx_buffer[0] = '\0';
+		rx_buffer[0] = '\0';
+		rx_stored_buffer[0] = '\0';
+		
 		// Initialise the DMA transfer ring buffer
 		RingBufferInit (&ring_buffer);
 		old_dma_pos = 0;
 
 		// Start a DMA transfer - the UART's DMA must be configured in
 		// "circular" mode so that it never stops receiving
-		HAL_UARTEx_ReceiveToIdle_DMA (&huart1, dma_rx_buffer, sizeof(dma_rx_buffer));
+		if (HAL_UARTEx_ReceiveToIdle_DMA (&huart1, dma_rx_buffer, sizeof(dma_rx_buffer)) != HAL_OK)
+			Error_Handler ();
 		__HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
     
 #if DEBUG >= 3
@@ -58,23 +113,36 @@ void ModemLLPower (bool on) {
 #if DEBUG >= 2
 	printf ("Modem power %s started...\r\n", on ? "on" : "off");
 #endif
+
 	HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_RESET);
 	// The difference between an "on" request and an "off" request is the length
 	// of time the PWRKEY pin is held low
+	if (periodic_cb != NULL)
+		periodic_cb ();
 	if (on)
-		HAL_Delay (100);
+		HAL_Delay (PWRKEY_ON_PULSE_WIDTH);
 	else
-		HAL_Delay (3000);
+		HAL_Delay (PWRKEY_OFF_PULSE_WIDTH);
 	HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_SET);
+	if (periodic_cb != NULL)
+		periodic_cb ();
+
 	// If powering on it takes time before the module's UART is ready to respond
-	// If powering off the power should not be removed for a period after the request
+	// If powering off the supply should not be removed for a period after the request
 	if (on)
-		HAL_Delay (6000);
+		HAL_Delay (PWRKEY_TIME_TILL_ON);
 	else
-		HAL_Delay (4000);
+		HAL_Delay (PWRKEY_TIME_TILL_OFF);
+
+	// remove any data sitting in receive buffer
+	ModemLLWaitForIdle (PWRKEY_IDLE_CHECK);
+	if (periodic_cb != NULL)
+		periodic_cb ();
+
 #if DEBUG >= 2
 	printf ("Modem power %s completed\r\n", on ? "on" : "off");
 #endif
+
 }
 
 /** @brief use the modem's RESET pin to reset the modem */
@@ -82,9 +150,18 @@ void ModemLLReset (void) {
 #if DEBUG >= 2
 	printf ("Modem reset started...\r\n");
 #endif
+
 	HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_RESET);
-	HAL_Delay (2500);
-	HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_SET);
+	HAL_Delay (RESET_PULSE_WIDTH);
+	HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_SET);	
+	if (periodic_cb != NULL)
+		periodic_cb ();
+
+	HAL_Delay (RESET_TIME_TILL_READY);
+	ModemLLWaitForIdle (RESET_IDLE_CHECK);
+	if (periodic_cb != NULL)
+		periodic_cb ();
+
 #if DEBUG >= 2
 	printf ("Modem reset completed\r\n");
 #endif
@@ -92,119 +169,282 @@ void ModemLLReset (void) {
 
 /**
  * @brief drain the modem receive buffer
- * @param delay the number of mS to wait before checking the buffer
  * @param timeout the number of mS to wait before failing
  * @retval true if the buffer is empty
  */
-bool ModemLLDrainRx (uint32_t delay, uint32_t timeout) {
-	uint32_t start = HAL_GetTick();
-	uint16_t n_bytes = 0;
-	while ((HAL_GetTick() - start) < timeout) {
-		HAL_Delay (delay);
+bool ModemLLWaitForIdle (uint32_t timeout) {
+	bool status = false;
+
+	// until timeout ...
+	uint32_t start_time = HAL_GetTick();
+	uint32_t last_byte_received_time = start_time;
+	int n_bytes_discarded = 0;
+	while ((HAL_GetTick() - start_time) < timeout && ! status) {
+		// see if any data has arrived
 		char byte;
-		n_bytes = 0;
 		while (RingBufferGet (&ring_buffer, &byte)) {
-			n_bytes += 1;
+			last_byte_received_time = HAL_GetTick();
+			n_bytes_discarded += 1;
 		}
-		if (n_bytes == 0) {
-			break;
-		}
+		
+		// if no data has been seen for 100mS, we're done
+		if ((HAL_GetTick() - last_byte_received_time) >= 100)
+			status = true;
+		else
+			HAL_Delay(1);
+
+		if (periodic_cb != NULL)
+			periodic_cb ();
 	}
-	if (n_bytes > 0) return false;
-	return true;
+
+#if DEBUG >= 2
+	printf ("Modem wait for idle, %d bytes discarded, modem %s idle\r\n", n_bytes_discarded, status ? "is" : "is *not*");
+#endif
+
+	return status;
 }
+bool ModemLLWaitForIdleDT (void) { return ModemLLWaitForIdle (default_wfi_timeout); }
 
 /**
- * @brief send a command to the modem
- * @param cmd the command to send (line termination will be added)
- * @param timeout the time to wait for the transmission to complete, in mS
- * @retval true if the command was sent OK
+ * @brief Send a command to the modem.
+ * @param timeout Time to wait for transmission completion (ms).
+ * @param fmt printf-style format string. Line termination will be added.
+ * @retval true if the command was sent successfully.
  */
-bool ModemLLSendCommand (char *cmd, uint32_t timeout) {
-	uint32_t start = HAL_GetTick();
-	if (HAL_UART_Transmit (&huart1, (unsigned char *) cmd, strlen(cmd), timeout) == HAL_OK) {
-		uint32_t elapsed = HAL_GetTick() - start;
-		uint32_t remain = (timeout > elapsed) ? (timeout - elapsed) : 1;
-		if (remain < 1) remain = 1;
-		if (HAL_UART_Transmit (&huart1, (unsigned char *) "\r\n", 2, remain) == HAL_OK) {
+bool ModemLLSendCommand(uint32_t timeout, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+	bool status = ModemLLSendCommandV(timeout, fmt, args);
+    va_end(args);
+
+	return status;
+}
+bool ModemLLSendCommandDT(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+	bool status = ModemLLSendCommandV(default_tx_timeout, fmt, args);
+    va_end(args);
+
+	return status;
+}
+static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args) {
+    int len = vsnprintf(tx_buffer, sizeof(tx_buffer), fmt, args);
+
+    /* Formatting error or truncation - in the check leave room for the
+     * terminating "\r\n\0" */
+    if ((len < 0) || (len >= (int) (sizeof(tx_buffer) -3))) {
+        return false;
+    }
+	tx_buffer[len++] = '\r';
+	tx_buffer[len++] = '\n';
+	tx_buffer[len] = '\0';
+
+    if (HAL_UART_Transmit(&huart1, (uint8_t *) tx_buffer, (uint16_t) len, timeout) == HAL_OK) {
 #if DEBUG >= 3
-			printf ("Modem Tx: \"%s\"\r\n", cmd);
+        printf("Modem Tx: \"%.*s\"\r\n", len -2, tx_buffer);
 #endif
-			return true;
-		}
-	}
-	return false;
+        return true;
+    }
+
+    return false;
 }
 
 /**
  * @brief receive a command response (or other line terminated string)
  *        from the modem
- * @param data where to put the received data
- * @param length length of the data buffer
+ * 
+ * The received data is put into the rx_buffer, where it can be
+ * interrogated using ModemGetLastRx()
+ * 
  * @param timeout amount of time to wait, in mS
  * @retval the data on success, NULL on failure */
-char *ModemLLReceiveLine (char *data, size_t length, uint32_t timeout) {
+bool ModemLLReceiveLine (uint32_t timeout) {
 	uint32_t start = HAL_GetTick();
 	while ((HAL_GetTick() - start) < timeout) {
-		if (RingBufferGetLine (&ring_buffer, data, length, true) == RBGL_OK) {
+		if (RingBufferGetLine (&ring_buffer, rx_buffer, sizeof (rx_buffer), true) == RBGL_OK) {
 #if DEBUG >= 3
-			printf ("Modem Rx: \"%s\"\r\n", data);
+			printf ("Modem Rx: \"%s\"\r\n", rx_buffer);
 #endif
-			return data;
+			return true;
 		}
+		HAL_Delay (1);
+		if (periodic_cb != NULL)
+			periodic_cb ();
 	}
-	return NULL;
+	return false;
 }
+bool ModemLLReceiveLineDT (void) { return ModemLLReceiveLine (default_rx_timeout); }
 
 /**
  * @brief receive a command response (or other line terminated string)
- *        and compare it against an expected value, case independent
- * @param expect the string to expect
- * @param timeout amount of time to wait, in mS */
-bool ModemLLExpect (char *expect, uint32_t timeout) {
-	uint32_t start = HAL_GetTick();
-	char line [MODEM_EXPECT_LINE_LEN];
-	while ((HAL_GetTick() - start) < timeout) {
-		uint32_t remain = timeout - (HAL_GetTick() - start);
-		if (ModemLLReceiveLine (line, MODEM_EXPECT_LINE_LEN, remain)) {
-			if (strcasecmp (line, expect) == 0)
-				return true;
-		}
+ *        and compare it against a list of expected values
+ * 
+ * Modem responses are converted to upper case before comparison.
+ * Expect strings must therefore be supplied in upper case.
+ * 
+ * Each received line of data is put into the rx_buffer, where the most recently
+ * retrieved line of data can be interrogated using ModemGetLastRxBuffer()
+ *  
+ * If the "store" field is set in the most recently matched suceed_list or
+ * fail_list item, the received data is copied into the stored_rx_buffer
+ * and is available from ModemGetStoredRxBuffer().
+ * 
+ * @param timeout amount of time to wait, in mS
+ * @param fail_list a list of responses that, if seen, causes the function to fail -
+ *        all responses in the list are checked for each line received - any
+ * 		  single match causes failure - may be NULL
+ * @param succeed_list a list of responses that are taken in order and matched
+ *        against successive lines read from the modem - in order to succeed all
+ * 		  reponses in the list must be matched
+ */
+bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list) {
+	if (succeed_list == NULL || succeed_list->count <= 0) return false;
+
+	// clear any previously stored response
+	rx_stored_buffer[0] = '\0';
+
+#if DEBUG >= 2
+	printf ("Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
+	for (size_t count=0; count<succeed_list->count; count++) {
+		const ModemResponse_t *succeed = &(succeed_list->items[count]);
+		printf (" \"%s\"", succeed->expect);
 	}
-	return false;
+	printf ("\r\n");
+#endif
+	
+	bool status = false;
+	bool done = false;
+	size_t n_found = 0;	
+	const ModemResponse_t *succeed = &(succeed_list->items[n_found]);
+	uint32_t start = HAL_GetTick();
+	while ((HAL_GetTick() - start) < timeout && ! done) {
+		uint32_t remain = timeout - (HAL_GetTick() - start);
+		if (ModemLLReceiveLine (remain)) {
+			str_upr (rx_buffer);
+
+			// check for failure responses
+			if (fail_list != NULL) {
+				for (size_t count=0; count<fail_list->count; count++) {
+					const ModemResponse_t *fail = &(fail_list->items[count]);
+					if (strstr (rx_buffer, fail->expect) != NULL) {
+						if (fail->store) {
+							strncpy(rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer) - 1);
+							rx_stored_buffer[sizeof(rx_stored_buffer) - 1] = '\0';
+						}
+						done = true;
+					}
+				}
+			}
+			
+			// check for successful responses
+			if (strstr (rx_buffer, succeed->expect) != NULL) {
+				if (succeed->store) {
+					strncpy(rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer) - 1);
+					rx_stored_buffer[sizeof(rx_stored_buffer) - 1] = '\0';
+				}
+				n_found += 1;
+				if (n_found >= succeed_list->count) {
+					status = true;
+					done = true;
+				} else {
+					succeed = &(succeed_list->items[n_found]);
+				}
+			}
+		}
+		if (periodic_cb != NULL)
+			periodic_cb ();
+	}
+	return status;
+}
+bool ModemLLExpectDT (const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list) {
+	return ModemLLExpect (default_rx_timeout, fail_list, succeed_list);
 }
 
 /**
  * @brief send a command and receive a response from the modem
- * @param cmd the command to send (line termination will be added)
- * @param expect the response to expect
+ * 
+ * Modem responses are converted to upper case before comparison.
+ * Expect strings must therefore be supplied in upper case.
+ *
+ * Each received line of data is put into the rx_buffer, where the most recently
+ * retrieved line of data can be interrogated using ModemGetLastRxBuffer()
+ *  
+ * If the "store" field is set in the most recently matched suceed_list or
+ * fail_list item, the received data is copied into the stored_rx_buffer
+ * and is available from ModemGetStoredRxBuffer().
+ * 
  * @param drain_timeout the time to spend draining the Rx buffer, in mS before
  *        starting the transation - 0 means don't drain the queue
- * @param tx_tineout the time to wait for the command to be sent
+ * @param tx_timeout the time to wait for the command to be sent
  * @param rx_timeout the time to wait for the expeceted result in mS
+ * @param fail_list a list of responses that, if seen, causes the function to fail -
+ *        all responses in the list are checked for each line received - any
+ * 		  single match causes failure - may be NULL
+ * @param succeed_list a list of responses that are taken in order and matched
+ *        against successive lines read from the modem - in order to succeed all
+ * 		  reponses in the list must be matched
  */
-bool ModemLLTransact (char *cmd, char *expect, uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout) {
+bool ModemLLTransact(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+					 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+					 const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	bool status = ModemLLTransactV (drain_timeout, tx_timeout, rx_timeout,
+	                                fail_list, succeed_list, fmt, args);
+	va_end (args);
+	
+	return status;
+}
+bool ModemLLTransactDT(const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+					   const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	bool status = ModemLLTransactV (default_wfi_timeout, default_tx_timeout, default_rx_timeout,
+	                                fail_list, succeed_list, fmt, args);
+	va_end (args);
+	
+	return status;
+}
+static bool ModemLLTransactV(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+		        			 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+		        			 const char *fmt, va_list args) {
 	bool status = true;
 
 	// drain the receiver
 	if (drain_timeout > 0) {
-		uint32_t drain_tick = drain_timeout / 10;
-		if (drain_tick <= 0) drain_tick = 1;
-		status = ModemLLDrainRx (drain_tick, drain_timeout);
+		status = ModemLLWaitForIdle (drain_timeout);
 	}
 
 	// send the command
 	if (status) {
-		status = ModemLLSendCommand (cmd, tx_timeout);
+		status = ModemLLSendCommandV(tx_timeout, fmt, args);
 	}
 	
 	// wait for the response
 	if (status) {
-		status = ModemLLExpect (expect, rx_timeout);
+		status = ModemLLExpect (rx_timeout, fail_list, succeed_list);
 	}
 	
 	return status;
 }
+
+/**
+ * @brief get the most recently transmitted line of data
+ * @retval the line
+ */
+char *ModemLLGetTxBuffer (void) { return tx_buffer; }
+
+/**
+ * @brief get the most recently received line of data
+ * @retval the line
+ */
+char *ModemLLGetRxBuffer (void) { return rx_buffer; }
+
+/**
+ * @brief get the most recently stored line of data
+ * @retval the line
+ */
+char *ModemLLGetRxStoredBuffer (void) { return rx_stored_buffer; }
 
 /**
  * @brief HAL DMA callback for UART1 data received via DMA
@@ -228,7 +468,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) 
 
         // Copy new bytes into ring buffer
         for (uint16_t i = 0; i < new_bytes; i++) {
-            RingBufferPut(&ring_buffer, (char)dma_rx_buffer[old_dma_pos]);
+            if (! RingBufferPut(&ring_buffer, (char)dma_rx_buffer[old_dma_pos]))
+				Error_Handler ();
             old_dma_pos = (old_dma_pos + 1) % DMA_BUFFER_SIZE;
         }
     }
@@ -244,6 +485,10 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) 
  */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart == &huart1) {
+#if DEBUG > 1
+		printf("UART error 0x%08lx\r\n", huart->ErrorCode);
+#endif
+
         // Clear UART Error Flags (ORE, NE, FE, PE)
         __HAL_UART_CLEAR_OREFLAG(huart);
         __HAL_UART_CLEAR_NEFLAG(huart);
@@ -253,9 +498,13 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
         // Reset DMA position tracker
         old_dma_pos = 0;
 
+		// Clear the ring buffer
+		RingBufferClear(&ring_buffer);
+
         // Restart circular DMA receive
         if (modem_initialised) {
-			HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buffer, sizeof(dma_rx_buffer));
+			if (HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buffer, sizeof(dma_rx_buffer)) != HAL_OK)
+				Error_Handler ();
 			__HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
 		}
     }

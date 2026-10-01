@@ -18,7 +18,8 @@ APP_C_SOURCES = $(shell pwd)/App/Src/app.c \
 			    $(shell pwd)/App/Src/ring.c \
 			    $(shell pwd)/App/Src/debug.c \
 			    $(shell pwd)/App/Src/app_iwdg.c \
-			    $(shell pwd)/App/Src/led.c
+			    $(shell pwd)/App/Src/led.c \
+			    $(shell pwd)/App/Src/utils.c
 APP_C_INCLUDES = -I$(shell pwd)/App/Inc
 
 .PHONY: all clean flash patch
