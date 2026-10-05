@@ -110,7 +110,7 @@ void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeo
  * NOTE: The A7683E model requires at least 40mS after power on before the
  * PWRKEY pin can be used */
 void ModemLLPower (bool on) {
-#if DEBUG >= 2
+#if DEBUG >= 3
 	printf ("Modem power %s started...\r\n", on ? "on" : "off");
 #endif
 
@@ -139,7 +139,7 @@ void ModemLLPower (bool on) {
 	if (periodic_cb != NULL)
 		periodic_cb ();
 
-#if DEBUG >= 2
+#if DEBUG >= 3
 	printf ("Modem power %s completed\r\n", on ? "on" : "off");
 #endif
 
@@ -147,7 +147,7 @@ void ModemLLPower (bool on) {
 
 /** @brief use the modem's RESET pin to reset the modem */
 void ModemLLReset (void) {
-#if DEBUG >= 2
+#if DEBUG >= 3
 	printf ("Modem reset started...\r\n");
 #endif
 
@@ -162,7 +162,7 @@ void ModemLLReset (void) {
 	if (periodic_cb != NULL)
 		periodic_cb ();
 
-#if DEBUG >= 2
+#if DEBUG >= 3
 	printf ("Modem reset completed\r\n");
 #endif
 }
@@ -197,7 +197,7 @@ bool ModemLLWaitForIdle (uint32_t timeout) {
 			periodic_cb ();
 	}
 
-#if DEBUG >= 2
+#if DEBUG >= 4
 	printf ("Modem wait for idle, %d bytes discarded, modem %s idle\r\n", n_bytes_discarded, status ? "is" : "is *not*");
 #endif
 
@@ -240,7 +240,7 @@ static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args)
 	tx_buffer[len] = '\0';
 
     if (HAL_UART_Transmit(&huart1, (uint8_t *) tx_buffer, (uint16_t) len, timeout) == HAL_OK) {
-#if DEBUG >= 3
+#if DEBUG >= 4
         printf("Modem Tx: \"%.*s\"\r\n", len -2, tx_buffer);
 #endif
         return true;
@@ -262,7 +262,7 @@ bool ModemLLReceiveLine (uint32_t timeout) {
 	uint32_t start = HAL_GetTick();
 	while ((HAL_GetTick() - start) < timeout) {
 		if (RingBufferGetLine (&ring_buffer, rx_buffer, sizeof (rx_buffer), true) == RBGL_OK) {
-#if DEBUG >= 3
+#if DEBUG >= 4
 			printf ("Modem Rx: \"%s\"\r\n", rx_buffer);
 #endif
 			return true;
@@ -303,7 +303,7 @@ bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, cons
 	// clear any previously stored response
 	rx_stored_buffer[0] = '\0';
 
-#if DEBUG >= 2
+#if DEBUG >= 3
 	printf ("Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
 	for (size_t count=0; count<succeed_list->count; count++) {
 		const ModemResponse_t *succeed = &(succeed_list->items[count]);
@@ -485,7 +485,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) 
  */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart == &huart1) {
-#if DEBUG > 1
+#if DEBUG >= 1
 		printf("UART error 0x%08lx\r\n", huart->ErrorCode);
 #endif
 
