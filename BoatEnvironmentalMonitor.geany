@@ -28,15 +28,15 @@ long_line_column=72
 
 [files]
 current_page=0
-FILE_NAME_0=763;None;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
+FILE_NAME_0=738;None;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
 FILE_NAME_1=1344;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
 FILE_NAME_2=1428;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FHardware.md;0;4
 FILE_NAME_3=1046;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FMakefile;0;4
-FILE_NAME_4=494;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp.c;0;4
-FILE_NAME_5=595;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fmodem_at.h;0;4
-FILE_NAME_6=3640;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_at.c;0;4
-FILE_NAME_7=1106;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fmodem_ll.h;0;4
-FILE_NAME_8=9786;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_ll.c;0;4
+FILE_NAME_4=2276;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp.c;0;4
+FILE_NAME_5=1743;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fmodem_at.h;0;4
+FILE_NAME_6=19589;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_at.c;0;4
+FILE_NAME_7=344;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fmodem_ll.h;0;4
+FILE_NAME_8=12958;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_ll.c;0;4
 FILE_NAME_9=3901;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fring.c;0;4
 FILE_NAME_10=462;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fring.h;0;4
 FILE_NAME_11=5651;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fmain.c;0;4

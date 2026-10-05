@@ -4,14 +4,18 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "stm32l4xx_hal.h"
+
 #include "debug.h"
 #include "modem_at.h"
+#include "modem_ll.h"
 #include "app_iwdg.h"
 #include "led.h"
 #include "app.h"
 
 // TODO: configuration data
-#define APN "TM"
+static const char *APN = "TM";
+static const char *HTP_HOSTS[] = {"www.google.com", "www.cloudflare.com", "aws.amazon.com", "www.microsoft.com"};
 
 static void WatchdogCallback (void);
 
@@ -25,13 +29,16 @@ void App (void) {
 
 	// Modem setup...
 #if DEBUG >= 1
-	printf ("Setting up modem\r\n");
+	printf ("App: Setting up modem\r\n");
 #endif
 	bool modem_status = false;
+	time_t rtc_time;
 	for (int n_retries = 0; (n_retries < 3) && (! modem_status); n_retries ++) {
 		// reset after previous attempts
-		if (n_retries > 0)
+		if (n_retries > 0) {
             ModemLLReset ();
+			HAL_Delay(2000); // Allow power rails & UART to stabilize
+		}
 
 		// check comms to the modem
 		modem_status = ModemTestComms (3);
@@ -42,15 +49,15 @@ void App (void) {
 
 		// check the SIM is ready
 		if (modem_status)
-			modem_status = ModemCheckSIMReady (3);
+			modem_status = ModemCheckSIMReady (5);
 
 		// check that the modem is in automatic operator selection mode
 		if (modem_status)
-			modem_status = ModemCheckAutoOperSelMode ();
+			modem_status = ModemCheckAutoOperSelMode (3);
 
 		// check that the modem is registered with the mobile network
 		if (modem_status)
-			modem_status = ModemCheckRegistered (3);
+			modem_status = ModemCheckRegistered (10);
 
 		// check the received signal strength (mainly of interest for debugging, but would
 		// be useful if it could be communicated in normal use, as it would show when the
@@ -58,12 +65,19 @@ void App (void) {
 		int rssi = 999;
 		if (modem_status)
 			rssi = ModemGetSignalStrength ();
-		if (rssi > 0)
+		if (rssi == 999)
 			modem_status = false;
 
-		// attach the modem to the packet domain network
+		// bring up the modem's internet stack
 		if (modem_status)
-			modem_status = ModemCheckPDAttached (APN, 3);
+			modem_status = ModemCheckIPOpened (APN, 3);
+			
+		// update the modem's real-time-clock from the network
+		if (modem_status)
+			modem_status = ModemSyncToHTPTime (HTP_HOSTS, sizeof(HTP_HOSTS) / sizeof(HTP_HOSTS[0]), 3);
+			
+		if (modem_status)
+			modem_status = ModemGetRTCTime (&rtc_time, 3);
 	}
 	if (! modem_status)
 		BlinkLEDForever (LED_MODEM_ERR, WatchdogCallback);	
@@ -71,18 +85,18 @@ void App (void) {
 
 	// bring down modem ...
 #if DEBUG >= 1
-	printf ("Bringing down modem\r\n");
+	printf ("App: Bringing down modem\r\n");
 #endif
 	modem_status = false;
 	for (int n_retries = 0; (n_retries < 3) && (! modem_status); n_retries ++) {
-		// detach the modem from the packet domain network
-		modem_status = ModemCheckPDDetached (3);
+		// bring down the modem's internet stack
+		modem_status = ModemCheckIPClosed (3);
 	}
 	if (! modem_status)
 		BlinkLEDForever (LED_MODEM_ERR, WatchdogCallback);	
 
 #if DEBUG >= 1
-	printf ("Program finished, idling\r\n");
+	printf ("App: Program finished, idling\r\n");
 #endif
 	BlinkLEDForever (LED_IDLE, WatchdogCallback);	
 }

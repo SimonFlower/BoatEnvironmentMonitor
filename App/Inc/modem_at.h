@@ -1,6 +1,8 @@
 #ifndef MODEM_AT_H
 #define MODEM_AT_H
 
+#include <time.h>
+
 // return values when checking the modem's functionality mode
 typedef enum {FUNC_ERROR = -1, FUNC_FULL = 1, FUNC_LIMITED = 2} ModemFunctionality_t;
 
@@ -13,8 +15,8 @@ typedef enum {SIM_ERROR = -1, SIM_READY = 1, SIM_NOT_READY = 2} ModemSIMStatus_t
 // return values when checking the modem's registration with the mobile network
 typedef enum {REG_ERROR = -1, REG_REGISTERED = 1, REG_NOT_REGISTERED} ModemRegStatus_t;
 
-// return values when checking that the modem is attached to the packet domain
-typedef enum {PD_ERROR = -1, PD_ATTACHED = 1, PD_DETACHED = 2} ModemPacketDomain_t;
+// return values when checking the modem's Internet (IP) status
+typedef enum {IPSTAT_ERROR = -1, IPSTAT_OPEN = 1, IPSTAT_CLOSED = 2} ModemIPStatus_t;
 
 void ModemStart (void (*periodic_cb)(void));
 bool ModemTestComms (int n_retries);
@@ -35,19 +37,14 @@ bool ModemCheckRegistered (int n_retries);
 
 int ModemGetSignalStrength ();
 
-ModemPacketDomain_t ModemGetPDStatus (void);
-bool ModemAttachToPD (const char *apn);
-bool ModemDetachFromPD (void);
-bool ModemCheckPDAttached (const char *apn, int n_retries);
-bool ModemCheckPDADetached (int n_retries);
+ModemIPStatus_t ModemGetIPState (void);
+bool ModemOpenIP (const char *apn);
+bool ModemCloseIP (void);
+bool ModemCheckIPOpened (const char *apn, int n_retries);
+bool ModemCheckIPClosed (int n_retries);
 
-#if DEBUG > 0
-char *ModemDecodeSIMStatus (ModemSIMStatus_t sim_status);
-char *ModemDecodeOpSelMode (int op_sel_mode);
-char *ModemDecodeRSSI (int rssi);
-char *ModemDecodeBER (int ber);
-char *ModemDecodeRegStat (int reg_stat);
-char *ModemDecodePDAttachStat (int pd_attach_stat);
-#endif
+bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries);
+bool ModemGetRTCTime (time_t *rtc_time, int n_retries);
+time_t ModemParseCCLKToUTC (const char *cclk_str);
 
 #endif /* MODEM_AT_H */
