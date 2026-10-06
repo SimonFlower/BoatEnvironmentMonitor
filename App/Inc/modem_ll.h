@@ -24,6 +24,7 @@ typedef struct {
     }
     
 void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void));
+void ModemLLShutdown (void);
 void ModemLLPower (bool on);
 void ModemLLReset (void);
 

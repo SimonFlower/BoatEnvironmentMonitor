@@ -1,13 +1,3 @@
-TODO: NETOPEN / NETCLOSE
-TODO: NETOPEN/CLOSE status
-TODO: Get IP address (is this needed)?
-TODO: Get network time (ideally as epoch time)
-
-List steps taken to intialise the modem and Ask AI if there any further needed
-AI code review
-
-
-
 ## Introduction
 
 This project contains software to run an environmental monitor for a boat

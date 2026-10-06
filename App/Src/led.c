@@ -60,7 +60,7 @@ void BlinkLED (LEDPattern_t pattern) {
 
     // pattern must not be 0, otherwise no blinking will occur
     if (pattern <= 0)
-        pattern = LED_UNKNOWN;
+        pattern = LED_SYSTEM_ERROR;
 
     // Blink the LED
     for (int count = 0; count<pattern * 2; count ++) {

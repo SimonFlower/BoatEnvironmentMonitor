@@ -30,16 +30,41 @@
 #define DEFAULT_TX_TIMEOUT			100
 #define DEFAULT_RX_TIMEOUT			TEN_SEC_TIMEOUT
 
+// flag to show whether modem has been started
+static bool modem_is_started = false;
+
 /**
  * @brief initialise the modem and power it up
+ * 
+ * This function should be called before any other function in this
+ * module to initialise the state of the module.
+ * 
  * @param periodic_cb a callback that is called periodically during lengthy operations
  *        can be NULL
  */
 void ModemStart (void (*periodic_cb)(void)) {
-    // initialise the low level functions
-    ModemLLInit (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, DEFAULT_RX_TIMEOUT, periodic_cb);
-    // soft power on
-    ModemLLPower (true);
+	if (! modem_is_started) {
+		// initialise the low level functions
+		ModemLLInit (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, DEFAULT_RX_TIMEOUT, periodic_cb);
+		// soft power on
+		ModemLLPower (true);
+		
+		modem_is_started = true;
+	}
+}
+
+/**
+ * @brief shutdown the modem
+ * 
+ * This function should be called after all work with the modem is finished
+ */
+void ModemStop (void) {
+	if (modem_is_started) {
+		// shutdown the low level functions
+		ModemLLShutdown ();
+		
+		modem_is_started = false;
+	}
 }
 
 /**
@@ -545,8 +570,17 @@ bool ModemGetRTCTime (time_t *rtc_time, int n_retries) {
 		if (status) {
 			*rtc_time = ModemParseCCLKToUTC (ModemLLGetRxStoredBuffer ());
 			if (*rtc_time == (time_t) -1) {
+				// there was an error parsing the time - assume the response
+				// was corrupt and retry
 				status = false;
 				*rtc_time = 0;
+			} else if (*rtc_time < (86400 * 365)) {
+				// the time is within one year of the start epoch
+				// the real-time clock has not yet been updated
+				// (the HTP synchronisation takes place in the
+				// background after the AT+CHTPUPDATE command has returned
+				HAL_Delay (ONE_SEC_TIMEOUT);
+				status = false;
 			}
 		}
 	}

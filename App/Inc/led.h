@@ -8,10 +8,9 @@
 // makes
 typedef enum {
     LED_SUCCESS = 1,
-    LED_HAL_ERROR = 2,
-    LED_MODEM_ERR = 3,
-    LED_UNKNOWN = 4,
-    LED_IDLE = 5
+    LED_CLOCK_ERROR = 2,
+    LED_MODEM_ERROR = 3,
+    LED_SYSTEM_ERROR = 4
 } LEDPattern_t;
 
 /* forward declarations */

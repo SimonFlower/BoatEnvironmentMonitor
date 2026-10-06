@@ -19,6 +19,7 @@ typedef enum {REG_ERROR = -1, REG_REGISTERED = 1, REG_NOT_REGISTERED} ModemRegSt
 typedef enum {IPSTAT_ERROR = -1, IPSTAT_OPEN = 1, IPSTAT_CLOSED = 2} ModemIPStatus_t;
 
 void ModemStart (void (*periodic_cb)(void));
+void ModemStop (void);
 bool ModemTestComms (int n_retries);
 
 ModemFunctionality_t ModemGetFunctionality (void);
