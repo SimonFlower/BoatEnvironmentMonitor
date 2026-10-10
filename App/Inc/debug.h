@@ -13,6 +13,7 @@
 
 #if DEBUG > 0
 void debug_init (void);
+void diagnostics (void);
 int __io_putchar(int ch);
 #endif
 

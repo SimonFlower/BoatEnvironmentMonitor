@@ -18,6 +18,21 @@ void debug_init (void) {
 	setvbuf(stdout, NULL, _IONBF, 0); // Disable buffering on stdout
 }
 
+/** @ brief some useful diagnostic information about the processor
+ */
+void diagnostics (void) {
+	uint32_t sysclk = HAL_RCC_GetSysClockFreq();  // SYSCLK
+	uint32_t hclk   = HAL_RCC_GetHCLKFreq();      // CPU/AHB clock
+	uint32_t pclk1  = HAL_RCC_GetPCLK1Freq();     // APB1 (TIM2's bus)
+	
+	// Defined in ./CubeMX/Core/Src/tim.c
+	extern TIM_HandleTypeDef htim2;
+
+	printf ("Diagnostics: \r\n");
+	printf ("  SYSCLK %lu, HCLK %lu, PCLK1 %lu\r\n", sysclk, hclk, pclk1);
+	printf ("  TIM2 prescaler init %lu, current %lu\r\n", htim2.Init.Prescaler, TIM2->PSC);
+}
+
 /**
  * @brief an implementation of __io_putchar that send characters to the serial port
  * @param ch the character to send

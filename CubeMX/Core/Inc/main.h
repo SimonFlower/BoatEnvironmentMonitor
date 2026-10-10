@@ -83,8 +83,8 @@ void Error_Handler(void);
 #define SWCLK_GPIO_Port GPIOA
 #define VCP_RX_Pin GPIO_PIN_15
 #define VCP_RX_GPIO_Port GPIOA
-#define DHT211_2_Pin GPIO_PIN_4
-#define DHT211_2_GPIO_Port GPIOB
+#define DHT22_2_Pin GPIO_PIN_4
+#define DHT22_2_GPIO_Port GPIOB
 #define DHT22_3_Pin GPIO_PIN_5
 #define DHT22_3_GPIO_Port GPIOB
 #define DHT22_4_Pin GPIO_PIN_6

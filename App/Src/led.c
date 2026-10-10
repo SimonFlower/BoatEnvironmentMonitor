@@ -14,7 +14,11 @@
 #define BLINK_TIME  		200
 #define PAUSE_TIME  		2000
 
+// flag to show whether the hardware has been initialised
+bool hardware_init = false;
+
 // forward declarations
+static void LEDHardwareInit ();
 static void LEDDelay (int ms);
 
 /**
@@ -46,30 +50,45 @@ void BlinkLEDForever (LEDPattern_t pattern, void (*blink_cb)(void)) {
  * @param delay the on/off time in mS
  */
 void BlinkLED (LEDPattern_t pattern) {
-    static bool first = true;
-    
-    if (first) {
-        // Enable GPIOB's clock
-        RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
-        
-        // Configure PB3 as General Purpose Output (Bits 7:6 set to 01)
-        GPIOB->MODER &= ~(3U << (3 * 2));
-        GPIOB->MODER |=  (1U << (3 * 2));
-        first = false;
-    }
-
     // pattern must not be 0, otherwise no blinking will occur
     if (pattern <= 0)
         pattern = LED_SYSTEM_ERROR;
 
     // Blink the LED
     for (int count = 0; count<pattern * 2; count ++) {
-        // Toggle PB3 (Onboard LED)
-        GPIOB->ODR ^= (1U << 3);
-
-        // Delay task
-        LEDDelay(BLINK_TIME);
+		LEDToggle ();
+        LEDDelay (BLINK_TIME);
     }        
+}
+
+void LEDOn (void) {
+	LEDHardwareInit ();
+	// PB3 on
+	GPIOB->ODR |= (1U << 3);
+}
+
+void LEDOff (void) {
+	LEDHardwareInit ();
+	// PB3 off
+	GPIOB->ODR &= ~(1U << 3);
+}
+
+void LEDToggle (void) {
+	LEDHardwareInit ();
+	// PB3 toggle
+	GPIOB->ODR ^= (1U << 3);
+}
+
+static void LEDHardwareInit () {
+    if (! hardware_init) {
+        // Enable GPIOB's clock
+        RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+        
+        // Configure PB3 as General Purpose Output (Bits 7:6 set to 01)
+        GPIOB->MODER &= ~(3U << (3 * 2));
+        GPIOB->MODER |=  (1U << (3 * 2));
+        hardware_init = true;
+    }
 }
 
 static void LEDDelay (int ms) {

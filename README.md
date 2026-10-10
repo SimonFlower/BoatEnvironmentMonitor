@@ -27,6 +27,7 @@ documentation use Linux commands.
   https://cdn.shopify.com/s/files/1/0174/1800/files/lte_breakout_schematic.pdf
 - A7682E modem module hardware and software manuals (downloads require login):
   https://en.simcom.com/product/A7683E.html
+- DHT22 manual: https://cdn-shop.adafruit.com/datasheets/Digital+humidity+and+temperature+sensor+AM2302.pdf
 
 ## Installing and configuring build software
 
