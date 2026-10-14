@@ -17,7 +17,7 @@ APP_C_SOURCES = $(shell pwd)/App/Src/app.c \
 			    $(shell pwd)/App/Src/modem_ll.c \
 			    $(shell pwd)/App/Src/dht22.c \
 			    $(shell pwd)/App/Src/ring.c \
-			    $(shell pwd)/App/Src/debug.c \
+			    $(shell pwd)/App/Src/user_io.c \
 			    $(shell pwd)/App/Src/app_iwdg.c \
 			    $(shell pwd)/App/Src/led.c \
 			    $(shell pwd)/App/Src/utils.c

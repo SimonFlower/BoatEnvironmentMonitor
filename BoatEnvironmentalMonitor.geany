@@ -27,21 +27,23 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=4
-FILE_NAME_0=93;None;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
+current_page=0
+FILE_NAME_0=186;None;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fnotepad;0;4
 FILE_NAME_1=1567;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FREADME.md;0;4
-FILE_NAME_2=2798;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FHardware.md;0;4
-FILE_NAME_3=888;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FMakefile;0;4
-FILE_NAME_4=2763;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp.c;0;4
-FILE_NAME_5=462;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fring.h;0;4
-FILE_NAME_6=2699;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fmain.c;0;4
-FILE_NAME_7=361;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fled.h;0;4
-FILE_NAME_8=1620;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fled.c;0;4
-FILE_NAME_9=365;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fdht22.h;0;4
-FILE_NAME_10=3617;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fdht22.c;0;4
-FILE_NAME_11=998;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fdebug.c;0;4
-FILE_NAME_12=499;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fdebug.h;0;4
-FILE_NAME_13=10824;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_ll.c;0;4
+FILE_NAME_2=4931;Markdown;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FHardware.md;0;4
+FILE_NAME_3=968;Make;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FMakefile;0;4
+FILE_NAME_4=2631;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp.c;0;4
+FILE_NAME_5=2699;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FCubeMX%2FCore%2FSrc%2Fmain.c;0;4
+FILE_NAME_6=361;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fled.h;0;4
+FILE_NAME_7=266;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fled.c;0;4
+FILE_NAME_8=464;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_ll.c;0;4
+FILE_NAME_9=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fring.c;0;4
+FILE_NAME_10=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Futils.c;0;4
+FILE_NAME_11=218;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fmodem_at.c;0;4
+FILE_NAME_12=1467;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fdht22.c;0;4
+FILE_NAME_13=0;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fapp_iwdg.c;0;4
+FILE_NAME_14=95;C;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FSrc%2Fuser_io.c;0;4
+FILE_NAME_15=23;C++;0;EUTF-8;1;1;0;%2Fhome%2Fsmf%2Fsoftware%2FBoatEnvironmentalMonitor%2FApp%2FInc%2Fuser_io.h;0;4
 
 [VTE]
 last_dir=/home/smf

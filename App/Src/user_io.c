@@ -1,26 +1,48 @@
-/** debugging assistance to allow debug output to be sent to the ST-LINK serial port */
+/** User IO to make a "console" on the ST-LINK serial port + functions to manage debug logging */
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "stm32l4xx_hal.h"
 
-#include "debug.h"
+#include "user_io.h"
+
+// the level for debug printing (0 to 5)
+static int debug_level;
 
 // Handle for the UART connecting to ST-LINK
 // This is defined in CubeMX/Core/Src/usart.c
 extern UART_HandleTypeDef huart2;
 
-#if DEBUG > 0
 /**
  * @brief initialise the debugging functions 
+ * @param dbg_lvl the level for printing debug messages
+ *        0 = none, 5 = maximum info
  */
-void debug_init (void) {
+void DebugInit (int dbg_lvl) {
+	debug_level = dbg_lvl;
 	setvbuf(stdout, NULL, _IONBF, 0); // Disable buffering on stdout
 }
 
-/** @ brief some useful diagnostic information about the processor
+/** 
+ * @brief print debug messages to the "console"
+ * @param level the level of this debug message (1 to 5)
+ * @param format the printf style format string
  */
-void diagnostics (void) {
+void DebugPrint(int msg_level, char *format, ...) {
+	if (msg_level <= debug_level) {
+		va_list args;
+
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
+	}
+} 
+
+/** 
+ * @brief print useful diagnostic information about the processor
+ */
+void PrintDiagnostics (void) {
 	uint32_t sysclk = HAL_RCC_GetSysClockFreq();  // SYSCLK
 	uint32_t hclk   = HAL_RCC_GetHCLKFreq();      // CPU/AHB clock
 	uint32_t pclk1  = HAL_RCC_GetPCLK1Freq();     // APB1 (TIM2's bus)
@@ -50,4 +72,3 @@ int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
-#endif /* DEBUG > 0 */

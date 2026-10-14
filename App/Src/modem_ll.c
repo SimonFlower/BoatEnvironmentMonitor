@@ -14,7 +14,7 @@
 #include "stm32l4xx_hal.h"
 #include "main.h"
 
-#include "debug.h"
+#include "user_io.h"
 #include "ring.h"
 #include "modem_ll.h"
 #include "utils.h"
@@ -109,9 +109,7 @@ void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeo
 		modem_initialised = true;
 		dma_transfers_up = true;
 	}
-#if DEBUG >= 3
-		printf ("Modem initialised\r\n");
-#endif
+	DebugPrint (3, "DEBUG: Modem initialised\r\n");
 }
 
 /**
@@ -137,9 +135,7 @@ void ModemLLShutdown (void) {
  * PWRKEY pin can be used
  */
 void ModemLLPower (bool on) {
-#if DEBUG >= 3
-	printf ("Modem power %s started...\r\n", on ? "on" : "off");
-#endif
+	DebugPrint (3, "DEBUG: Modem power %s started...\r\n", on ? "on" : "off");
 
 	// if the modem is initialised and we're turning the modem off then turn off DMA transfers
 	if ((! on) && modem_initialised && dma_transfers_up) {
@@ -186,17 +182,12 @@ void ModemLLPower (bool on) {
 		dma_transfers_up = true;
 	}
 
-#if DEBUG >= 3
-	printf ("Modem power %s completed\r\n", on ? "on" : "off");
-#endif
-
+	DebugPrint (3, "DEBUG: Modem power %s completed\r\n", on ? "on" : "off");
 }
 
 /** @brief use the modem's RESET pin to reset the modem */
 void ModemLLReset (void) {
-#if DEBUG >= 3
-	printf ("Modem reset started...\r\n");
-#endif
+	DebugPrint (3, "DEBUG: Modem reset started...\r\n");
 
 	bool was_dma_up = dma_transfers_up;
 
@@ -231,9 +222,7 @@ void ModemLLReset (void) {
 	if (periodic_cb != NULL)
 		periodic_cb ();
 
-#if DEBUG >= 3
-	printf ("Modem reset completed\r\n");
-#endif
+	DebugPrint (3, "DEBUG: Modem reset completed\r\n");
 }
 
 /**
@@ -266,9 +255,7 @@ bool ModemLLWaitForIdle (uint32_t timeout) {
 			periodic_cb ();
 	}
 
-#if DEBUG >= 4
-	printf ("Modem wait for idle, %d bytes discarded, modem %s idle\r\n", n_bytes_discarded, status ? "is" : "is *not*");
-#endif
+	DebugPrint (4, "DEBUG: Modem wait for idle, %d bytes discarded, modem %s idle\r\n", n_bytes_discarded, status ? "is" : "is *not*");
 
 	return status;
 }
@@ -309,9 +296,7 @@ static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args)
 	tx_buffer[len] = '\0';
 
     if (HAL_UART_Transmit(&huart1, (uint8_t *) tx_buffer, (uint16_t) len, timeout) == HAL_OK) {
-#if DEBUG >= 4
-        printf("Modem Tx: \"%.*s\"\r\n", len -2, tx_buffer);
-#endif
+        DebugPrint (4, "DEBUG: Modem Tx: \"%.*s\"\r\n", len -2, tx_buffer);
         return true;
     }
 
@@ -331,9 +316,7 @@ bool ModemLLReceiveLine (uint32_t timeout) {
 	uint32_t start = HAL_GetTick();
 	while ((HAL_GetTick() - start) < timeout) {
 		if (RingBufferGetLine (&ring_buffer, rx_buffer, sizeof (rx_buffer), true) == RBGL_OK) {
-#if DEBUG >= 4
-			printf ("Modem Rx: \"%s\"\r\n", rx_buffer);
-#endif
+			DebugPrint (4, "DEBUG: Modem Rx: \"%s\"\r\n", rx_buffer);
 			return true;
 		}
 		HAL_Delay (1);
@@ -372,14 +355,12 @@ bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, cons
 	// clear any previously stored response
 	rx_stored_buffer[0] = '\0';
 
-#if DEBUG >= 3
-	printf ("Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
+	DebugPrint (3, "DEBUG: Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
 	for (size_t count=0; count<succeed_list->count; count++) {
 		const ModemResponse_t *succeed = &(succeed_list->items[count]);
-		printf (" \"%s\"", succeed->expect);
+		DebugPrint (3, " \"%s\"", succeed->expect);
 	}
-	printf ("\r\n");
-#endif
+	DebugPrint (3, "\r\n");
 	
 	bool status = false;
 	bool done = false;
@@ -554,9 +535,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) 
  */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart == &huart1) {
-#if DEBUG >= 1
-		printf("UART error 0x%08lx\r\n", huart->ErrorCode);
-#endif
+		printf("ERROR: UART error 0x%08lx\r\n", huart->ErrorCode);
 
 		// Clear all UART Error Flags in ICR register
         __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_OREF | UART_CLEAR_NEF | UART_CLEAR_PEF | UART_CLEAR_FEF);

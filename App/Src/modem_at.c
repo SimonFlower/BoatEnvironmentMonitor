@@ -9,7 +9,7 @@
 
 #include "stm32l4xx_hal.h"
 
-#include "debug.h"
+#include "user_io.h"
 #include "modem_ll.h"
 #include "modem_at.h"
 
@@ -106,9 +106,8 @@ bool ModemTestComms (int n_retries) {
                                        "ATI");
     }
     
-#if DEBUG >= 2
-        printf ("Modem test comms completed %s\r\n", status ? "successfully" : "unsuccessfully");
-#endif	
+    DebugPrint (2, "DEBUG: Modem test comms completed %s\r\n", status ? "successfully" : "unsuccessfully");
+
     return status;
 }
 
@@ -132,15 +131,13 @@ ModemFunctionality_t ModemGetFunctionality (void) {
         ret_val = FUNC_ERROR;
     }
 
-#if DEBUG >= 2
-    printf ("Modem functionality: ");
+    DebugPrint (2, "DEBUG: Modem functionality: ");
     switch (ret_val) {
-        case FUNC_FULL: printf ("full"); break;
-        case FUNC_LIMITED: printf ("limited (%d)", func_code); break;
-        default: printf ("*** error ***"); break;
+        case FUNC_FULL: DebugPrint (2, "full"); break;
+        case FUNC_LIMITED: DebugPrint (2, "limited (%d)", func_code); break;
+        default: DebugPrint (2, "*** error ***"); break;
     }
-    printf ("\r\n");
-#endif
+    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -154,9 +151,8 @@ bool ModemSetFullFunctionality (bool reset) {
     bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+CFUN=1%s", reset ? ",1" : "");
-#if DEBUG >= 2
-    printf ("Modem %s to full functionality\r\n", status ? "set" : "*not* set");
-#endif
+    DebugPrint (2, "DEBUG: Modem %s to full functionality\r\n", status ? "set" : "*not* set");
+
     return status;
 }
 
@@ -195,15 +191,13 @@ ModemOperSelMode_t ModemGetOperSelMode (void) {
         ret_val = OPER_SEL_ERROR;
     }
 
-#if DEBUG >= 2
-    printf ("Modem operator selection mode: ");
+    DebugPrint (2, "DEBUG: Modem operator selection mode: ");
     switch (ret_val) {
-        case OPER_SEL_AUTO: printf ("automatic"); break;
-        case OPER_SEL_NOT_AUTO: printf ("not automatic (%d)", op_sel_mode_code); break;
-        default: printf ("*** error ***"); break;
+        case OPER_SEL_AUTO: DebugPrint (2, "automatic"); break;
+        case OPER_SEL_NOT_AUTO: DebugPrint (2, "not automatic (%d)", op_sel_mode_code); break;
+        default: DebugPrint (2, "*** error ***"); break;
     }
-    printf ("\r\n");
-#endif
+    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -216,9 +210,8 @@ bool ModemSetAutoOperSelMode (void) {
     bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+COPS=0");
-#if DEBUG >= 2
-    printf ("Modem %s to automatic operator selection mode\r\n", status ? "set" : "*not* set");
-#endif
+    DebugPrint (2, "DEBUG: Modem %s to automatic operator selection mode\r\n", status ? "set" : "*not* set");
+
     return status;
 }
 
@@ -256,15 +249,13 @@ ModemSIMStatus_t ModemGetSIMStatus (void) {
         sim_status = SIM_ERROR;
     }
 
-#if DEBUG >= 2
-    printf ("Modem SIM status: ");
+    DebugPrint (2, "DEBUG: Modem SIM status: ");
     switch (sim_status) {
-        case SIM_READY: printf ("ready"); break;
-        case SIM_NOT_READY: printf ("not ready: \"%s\"", ModemLLGetRxStoredBuffer ()); break;
-        default: printf ("*** error ***"); break;
+        case SIM_READY: DebugPrint (2, "ready"); break;
+        case SIM_NOT_READY: DebugPrint (2, "not ready: \"%s\"", ModemLLGetRxStoredBuffer ()); break;
+        default: DebugPrint (2, "*** error ***"); break;
     }
-    printf ("\r\n");
-#endif
+    DebugPrint (2, "\r\n");
 
     return sim_status;
 }
@@ -312,15 +303,13 @@ ModemRegStatus_t ModemGetRegistrationStatus (void) {
         reg_status = REG_ERROR;
     }
 
-#if DEBUG >= 2
-    printf ("Modem network registration status: ");
+    DebugPrint (2, "DEBUG: Modem network registration status: ");
     switch (reg_status) {
-        case REG_REGISTERED: printf ("registered (%d)", reg_code); break;
-        case REG_NOT_REGISTERED: printf ("not registered (%d)", reg_code); break;
-        default: printf ("*** error ***"); break;
+        case REG_REGISTERED: DebugPrint (2, "registered (%d)", reg_code); break;
+        case REG_NOT_REGISTERED: DebugPrint (2, "not registered (%d)", reg_code); break;
+        default: DebugPrint (2, "*** error ***"); break;
     }
-    printf ("\r\n");
-#endif
+    DebugPrint (2, "\r\n");
 
     return reg_status;
 }
@@ -359,9 +348,7 @@ int ModemGetSignalStrength () {
         rssi = 999;
     }
     
-#if DEBUG >= 2
-    printf ("Modem received signal strength: %ddBm\r\n", rssi);
-#endif
+    DebugPrint (2, "DEBUG: Modem received signal strength: %ddBm\r\n", rssi);
 
     return rssi;
 }
@@ -391,15 +378,13 @@ ModemIPStatus_t ModemGetIPState (void) {
         ret_val = IPSTAT_ERROR;
     }
 
-#if DEBUG >= 2
-    printf ("Modem IP status: ");
+    DebugPrint (2, "DEBUG: Modem IP status: ");
     switch (ret_val) {
-        case IPSTAT_OPEN: printf ("open"); break;
-        case IPSTAT_CLOSED: printf ("closed"); break;
-        default: printf ("*** error ***"); break;
+        case IPSTAT_OPEN: DebugPrint (2, "open"); break;
+        case IPSTAT_CLOSED: DebugPrint (2, "closed"); break;
+        default: DebugPrint (2, "*** error ***"); break;
     }
-    printf ("\r\n");
-#endif
+    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -414,19 +399,14 @@ bool ModemOpenIP (const char *apn) {
 	bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+CGAUTH=%d,0", NETWORK_CID);
-#if DEBUG >= 2
-    printf ("Modem PAP/CHAP authentication on CID %d %s\r\n", NETWORK_CID, status ? "turned off" : "*not* turned off");
-#endif
-
+    DebugPrint (2, "DEBUG: Modem PAP/CHAP authentication on CID %d %s\r\n", NETWORK_CID, status ? "turned off" : "*not* turned off");
 	
     // set the modem's access point name
     if (status)
         status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
                                     RESPONSE_LIST( { "OK", false } ),
                                     "AT+CGDCONT=%d,\"IP\",\"%s\"", NETWORK_CID, apn);
-#if DEBUG >= 2
-    printf ("Modem APN \"%s\" on CID %d %s\r\n", apn, NETWORK_CID, status ? "set" : "*not* set");
-#endif
+    DebugPrint (2, "DEBUG: Modem APN \"%s\" on CID %d %s\r\n", apn, NETWORK_CID, status ? "set" : "*not* set");
 
     // start network operations
     if (status) {
@@ -442,9 +422,7 @@ bool ModemOpenIP (const char *apn) {
                 ModemLLReceiveLine (ONE_SEC_TIMEOUT);
             }
         }
-#if DEBUG >= 2
-    printf ("Modem packet domain %s\r\n", status ? "attached" : "*not* attached");
-#endif
+		DebugPrint (2, "DEBUG: Modem packet domain %s\r\n", status ? "attached" : "*not* attached");
     }
 
     return status;
@@ -462,9 +440,7 @@ bool ModemCloseIP (void) {
     // there may be an "OK" or "ERROR" still to be picked up
     ModemLLReceiveLine (ONE_SEC_TIMEOUT);
 
-#if DEBUG >= 2
-    printf ("Modem packet domain %s\r\n", status ? "detached" : "*not* detached");
-#endif
+    DebugPrint (2, "DEBUG: Modem packet domain %s\r\n", status ? "detached" : "*not* detached");
 
     return status;
 }
@@ -510,9 +486,7 @@ bool ModemCheckIPClosed (int n_retries) {
  */
 bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries) {
 
-#if DEBUG >= 2
-	printf ("Modem syncing to network time\r\n");
-#endif
+	DebugPrint (2, "DEBUG: Modem syncing to network time\r\n");
 
 	bool status = false;
 	for (int retry=0; (retry<n_retries) && (! status); retry ++) {
@@ -543,9 +517,8 @@ bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries
 									  "AT+CHTPUPDATE");
 	}
 
-#if DEBUG >= 2
-	printf ("Modem %s to network time\r\n", status ? "synced" : "*not* synced");
-#endif
+	DebugPrint (2, "DEBUG: Modem %s to network time\r\n", status ? "synced" : "*not* synced");
+
 	return status;
 }
 
@@ -585,10 +558,8 @@ bool ModemGetRTCTime (time_t *rtc_time, int n_retries) {
 		}
 	}
 
-#if DEBUG >= 2
 	char *time_str = asctime(gmtime(rtc_time));
-	printf ("Modem RTC time %s: %.*s\r\n", status ? "retrieved ok" : "*not* retrieved ok", strlen (time_str) -1, time_str);
-#endif
+	DebugPrint (2, "DEBUG: Modem RTC time %s: %.*s\r\n", status ? "retrieved ok" : "*not* retrieved ok", strlen (time_str) -1, time_str);
 
     return status;
 }

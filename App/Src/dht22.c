@@ -36,7 +36,7 @@
 #include "stm32l4xx_hal.h"
 #include "main.h"
 
-#include "debug.h"
+#include "user_io.h"
 #include "dht22.h"
 
 // Defined in ./CubeMX/Core/Src/tim.c
@@ -68,9 +68,7 @@ bool DHT22Init (void) {
 	
 	// The reading routines use timer TIM2
 	if (HAL_TIM_Base_Start(&htim2) != HAL_OK) {
-#if DEBUG >= 2
-		printf ("DHT22 init: failed to start TIM2\r\n");
-#endif
+		DebugPrint (2, "DEBUG: DHT22 init: failed to start TIM2\r\n");
 		return false;
 	}
 	
@@ -81,13 +79,11 @@ bool DHT22Init (void) {
 	uint32_t us = __HAL_TIM_GET_COUNTER(&htim2);
 	uint32_t expected = 2000000;
 	if (us < (expected - (expected / 20)) || us > (expected + (expected / 20))) {
-#if DEBUG >= 2
 		if (us == 0)
-			printf ("DHT22 init: TIM2 not running\r\n");
+			DebugPrint (2, "DEBUG: DHT22 init: TIM2 not running\r\n");
 		else
-			printf ("DHT22 init: TIM2 running at wrong speed (%lu should be %lu)\r\n",
-			        us, expected);
-#endif
+			DebugPrint (2, "DEBUG: DHT22 init: TIM2 running at wrong speed (%lu should be %lu)\r\n",
+    			        us, expected);
 		return false;
 	}
 
@@ -145,10 +141,8 @@ DHT22ReadingStatus_t DHT22TakeReading (DHT22SensorID_t dht22_id, DHT22Reading_t 
     while (!(GPIOB->IDR & pin_mask)) {
         if ((TIM2->CNT - t_begin) > 50) {
             __set_PRIMASK(primask);
-#if DEBUG >= 2
-			printf ("DHT22 sensor ID %d: timeout waiting for line to go high after start pulse\r\n",
-			        (int) dht22_id);
-#endif
+			DebugPrint (2, "DEBUG: DHT22 sensor ID %d: timeout waiting for line to go high after start pulse\r\n",
+			            (int) dht22_id);
             return DHT22_NO_SENSOR;
         }
     }
@@ -173,29 +167,23 @@ DHT22ReadingStatus_t DHT22TakeReading (DHT22SensorID_t dht22_id, DHT22Reading_t 
     __set_PRIMASK(primask);
 
 	// Debug dump of the pulse buffer
-#if DEBUG >= 3
-	printf ("DHT22 sensor ID %d, dump pulse buffer, %d entries:", (int) dht22_id, n_edges);
+	DebugPrint (3, "DEBUG: DHT22 sensor ID %d, dump pulse buffer, %d entries:", (int) dht22_id, n_edges);
 	for (int count=0; count<n_edges; count++)
-		printf (" %lu", pulse_width[count]);
-	printf ("\r\n");
-#endif
+		DebugPrint (3, " %lu", pulse_width[count]);
+	DebugPrint (3, "\r\n");
         
     // - Check all pulses received
     if (n_edges < MIN_EDGES) {
-#if DEBUG >= 2
-		printf ("DHT22 sensor ID %d, insufficient pulses (%d should be at least %d)\r\n",
-				(int) dht22_id, n_edges, MIN_EDGES);
-#endif
+		DebugPrint (2, "DEBUG: DHT22 sensor ID %d, insufficient pulses (%d should be at least %d)\r\n",
+    				(int) dht22_id, n_edges, MIN_EDGES);
 		return DHT22_ERROR;
 	}
 	
 	// The initial framing pulses should be about 80uS
     if (pulse_width[RESP_LOW_IDX]  < 60 || pulse_width[RESP_LOW_IDX]  > 100 ||
         pulse_width[RESP_HIGH_IDX] < 60 || pulse_width[RESP_HIGH_IDX] > 100) {
-#if DEBUG >= 2
-		printf ("DHT22 sensor ID %d, framing pulse widths incorrect: %lu %lu\r\n",
+		DebugPrint (2, "DEBUG: DHT22 sensor ID %d, framing pulse widths incorrect: %lu %lu\r\n",
 				(int) dht22_id, pulse_width[RESP_LOW_IDX], pulse_width[RESP_HIGH_IDX]);
-#endif
 		return DHT22_ERROR;
 	}
 
@@ -206,11 +194,9 @@ DHT22ReadingStatus_t DHT22TakeReading (DHT22SensorID_t dht22_id, DHT22Reading_t 
         uint32_t low_width  = pulse_width[pulse_index];
         uint32_t high_width = pulse_width[pulse_index +1];
         if (low_width < 30 || low_width > 70 || high_width < 15 || high_width > 85) {
-#if DEBUG >= 2
-			printf ("DHT22 sensor ID %d, data pulse %d/%d, frame or data width incorrect: %lu %lu\r\n",
-                    (int) dht22_id, pulse_index, pulse_index +1,
-                    low_width, high_width);
-#endif
+			DebugPrint (2, "DEBUG: DHT22 sensor ID %d, data pulse %d/%d, frame or data width incorrect: %lu %lu\r\n",
+                        (int) dht22_id, pulse_index, pulse_index +1,
+                        low_width, high_width);
             return DHT22_ERROR;
 		}
         if (high_width > 40)
@@ -219,12 +205,10 @@ DHT22ReadingStatus_t DHT22TakeReading (DHT22SensorID_t dht22_id, DHT22Reading_t 
 
     // Verify 8-bit checksum and finalise the data
     if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
-#if DEBUG >= 2
-		printf ("DHT22 sensor ID %d, checksum incorrect: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n",
-		        (int) dht22_id, 
-		        (unsigned int) data[0], (unsigned int) data[1], (unsigned int) data[2],
-		        (unsigned int) data[3], (unsigned int) data[4]);
-#endif
+		DebugPrint (2, "DEBUG: DHT22 sensor ID %d, checksum incorrect: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\r\n",
+    		        (int) dht22_id, 
+	    	        (unsigned int) data[0], (unsigned int) data[1], (unsigned int) data[2],
+		            (unsigned int) data[3], (unsigned int) data[4]);
 		return DHT22_ERROR;
 	}
 			
@@ -238,18 +222,15 @@ DHT22ReadingStatus_t DHT22TakeReading (DHT22SensorID_t dht22_id, DHT22Reading_t 
     // Final sanity check on the data
     if (reading->humidity < 0 || reading->humidity > 1000 ||
         reading->temperature < -400 || reading->temperature > 800) {
-#if DEBUG >= 2
-	printf ("DHT22 sensor ID %d, readings outside plausible values: temperature %d(10xC), humidity %d(10x%%)\r\n",
-	        (int) dht22_id, reading->temperature, reading->humidity);
-#endif
+	DebugPrint (2, "DEBUG: DHT22 sensor ID %d, readings outside plausible values: temperature %d(10xC), humidity %d(10x%%)\r\n",
+               (int) dht22_id, reading->temperature, reading->humidity);
 
 		return DHT22_ERROR;
 	}
 
-#if DEBUG >= 2
-	printf ("DHT22 sensor ID %d, temperature %d(10xC), humidity %d(10x%%)\r\n",
-	        (int) dht22_id, reading->temperature, reading->humidity);
-#endif
+	DebugPrint (2, "DEBUG: DHT22 sensor ID %d, temperature %d(10xC), humidity %d(10x%%)\r\n",
+    	        (int) dht22_id, reading->temperature, reading->humidity);
+
 	reading->status = true;
     return DHT22_READING_OK;
 }

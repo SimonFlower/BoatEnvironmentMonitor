@@ -6,7 +6,7 @@
 
 #include "stm32l432xx.h"
 
-#include "debug.h"
+#include "user_io.h"
 #include "led.h"
 
 // times for the blink and pause between blink, in mS
