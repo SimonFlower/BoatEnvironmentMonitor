@@ -5,6 +5,7 @@
 
 void DebugInit (int dbg_lvl);
 void DebugPrint(int msg_level, char *format, ...);
+void DebugDump (int msg_level, const char *format, const char *buffer, int len, ...);
 void PrintDiagnostics (void);
 int __io_putchar(int ch);
 

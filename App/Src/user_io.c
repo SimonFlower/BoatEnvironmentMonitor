@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "stm32l4xx_hal.h"
 
@@ -26,7 +27,7 @@ void DebugInit (int dbg_lvl) {
 
 /** 
  * @brief print debug messages to the "console"
- * @param level the level of this debug message (1 to 5)
+ * @param msg_level the level of this debug message (1 to 5)
  * @param format the printf style format string
  */
 void DebugPrint(int msg_level, char *format, ...) {
@@ -38,6 +39,35 @@ void DebugPrint(int msg_level, char *format, ...) {
 		va_end(args);
 	}
 } 
+
+/**
+ * @brief dump a (possibly binar) buffer
+ * @param msg_level the level of this debug message (1 to 5)
+ * @param format the printf style format string
+ * @param buffer the buffer to dump
+ * @param len the length of the buffer
+ */
+void DebugDump (int msg_level, const char *format, const char *buffer, int len, ...) {
+	if (msg_level <= debug_level) {
+		va_list args;
+
+		va_start(args, len);
+		vprintf(format, args);
+		va_end(args);
+
+		printf (": \"");
+		const char *ptr = buffer;
+		for (int count=0; count<len; count++) {
+			unsigned char c = (unsigned char) *ptr;
+			if (isprint (c))
+				printf ("%c", c);
+			else
+				printf ("\\x%02x", c);
+			ptr ++;
+		}
+		printf ("\"\r\n");
+	}
+}
 
 /** 
  * @brief print useful diagnostic information about the processor

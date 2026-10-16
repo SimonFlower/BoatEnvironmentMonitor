@@ -18,8 +18,10 @@ typedef enum {REG_ERROR = -1, REG_REGISTERED = 1, REG_NOT_REGISTERED} ModemRegSt
 // return values when checking the modem's Internet (IP) status
 typedef enum {IPSTAT_ERROR = -1, IPSTAT_OPEN = 1, IPSTAT_CLOSED = 2} ModemIPStatus_t;
 
-void ModemStart (void (*periodic_cb)(void));
-void ModemStop (void);
+bool ModemInit (void (*periodic_cb)(void));
+bool ModemStart (void);
+bool ModemStop (void);
+bool ModemReset (void);
 bool ModemTestComms (int n_retries);
 
 ModemFunctionality_t ModemGetFunctionality (void);

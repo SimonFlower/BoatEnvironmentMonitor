@@ -16,8 +16,9 @@
 
 #include "user_io.h"
 #include "ring.h"
-#include "modem_ll.h"
 #include "utils.h"
+#include "uart.h"
+#include "modem_ll.h"
 
 // some timing contants
 #define PWRKEY_ON_PULSE_WIDTH	100
@@ -33,6 +34,9 @@
 #define MODEM_TX_MAX_LEN 		256
 #define MODEM_RX_MAX_LEN		256
 
+// Storage for the ring buffer used to receive data from the UART
+static uint8_t rb_storage [1024];
+
 // transmit and receive buffers for sending commands to the modem
 // and receiving responses from it
 static char tx_buffer [MODEM_TX_MAX_LEN];
@@ -44,21 +48,8 @@ uint32_t default_wfi_timeout;
 uint32_t default_tx_timeout;
 uint32_t default_rx_timeout;
 
-// Defined in CubeMX/Core/Src/usart.c
-extern UART_HandleTypeDef huart1;
-
 // A flag showing whether the Modem has been initialised
 static volatile bool modem_initialised = false;
-static volatile bool dma_transfers_up = false;
-
-// The ring buffer used to receive data from DMA
-static RingBuffer_t ring_buffer;
-
-// The DMA receive buffer for data sent from the modem
-// This is *only* to be used by the DMA callback
-#define DMA_BUFFER_SIZE	256
-static uint8_t dma_rx_buffer[DMA_BUFFER_SIZE];
-static volatile uint16_t old_dma_pos; 	// Tracks last processed DMA position
 
 // a callback the is called periodically during lengthy operations
 // could be NULL
@@ -69,12 +60,11 @@ static bool ModemLLSendCommandV (uint32_t timeout, const char *fmt, va_list args
 static bool ModemLLTransactV(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
 		        			 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 		        			 const char *fmt, va_list args);
-static bool restartUART (UART_HandleTypeDef *huart);
  
 /**
- * @brief set up DMA transfer with modem
+ * @brief initialise communications with the modem
  * 
- * This function should be called before any other function in this
+ * This function should be called once before any other function in this
  * module to initialise the state of the module.
  * 
  * @param dwfi_timeout the default timeout for ModemWaitForIdle()
@@ -82,13 +72,34 @@ static bool restartUART (UART_HandleTypeDef *huart);
  * @param drx_timeout the default timeout for ModemReceiveLine()
  * @param pcb a callback that is called periodically during lengthy operations
  *        can be NULL
+ * @retval true if the modem was initialised OK
  */
-void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void)) {
+bool ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void)) {
+	bool status = true;
+	
 	// store parameters
 	default_wfi_timeout = dwfi_timeout;
 	default_tx_timeout = dtx_timeout;
 	default_rx_timeout = drx_timeout;
 	periodic_cb = pcb;
+
+	// intialise the UART
+	status = UARTInit (UART_MODEM, rb_storage, sizeof (rb_storage));
+
+	DebugPrint (3, "DEBUG: Modem initialised %s\r\n", status ? "ok" : "*not* ok");
+
+	return status;
+}
+
+/**
+ * @brief start commincating with the modem
+ * 
+ * This function should be called before working with the modem
+ *
+ * @retval true if the modem was started OK
+ */
+bool ModemLLStart (void) {
+	bool status = true;
 
 	// empty the "history" of transmitted and received commands
 	tx_buffer[0] = '\0';
@@ -96,133 +107,137 @@ void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeo
 	rx_stored_buffer[0] = '\0';
 		
 	if (! modem_initialised) {
-		// Initialise the DMA transfer ring buffer
-		RingBufferInit (&ring_buffer);
-		old_dma_pos = 0;
-
-		// Start a DMA transfer - the UART's DMA must be configured in
-		// "circular" mode so that it never stops receiving
-		if (HAL_UARTEx_ReceiveToIdle_DMA (&huart1, dma_rx_buffer, sizeof(dma_rx_buffer)) != HAL_OK)
-			Error_Handler ();
-		__HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
-    
+		status = UARTStart (UART_MODEM);
 		modem_initialised = true;
-		dma_transfers_up = true;
 	}
-	DebugPrint (3, "DEBUG: Modem initialised\r\n");
+
+	return status;
 }
 
+ 
 /**
  * @brief close communications with the modem
  * 
  * This function should be called after all work with the modem is finished
+ * 
+ * @retval true if the modem was stopped OK
  */
-void ModemLLShutdown (void) {
-	if (modem_initialised && dma_transfers_up) {
-		if (dma_transfers_up) {
-			if (HAL_UART_AbortReceive (&huart1) != HAL_OK)
-				Error_Handler ();
-				
-			dma_transfers_up = false;
-		}
+bool ModemLLStop (void) {
+	bool status = true;
+	if (modem_initialised) {
+		status = UARTStop (UART_MODEM);
 		modem_initialised = false;
 	}
+	DebugPrint (3, "DEBUG: Modem %s\r\n", status ? "stopped ok" : "*not* stopped ok");
+
+	return status;
 }
 
 /** @brief use the modem's PWRKEY pin to request the modem powers on or off 
  * 
  * NOTE: The A7683E model requires at least 40mS after power on before the
  * PWRKEY pin can be used
+ * 
+ * @retval true if the power change was completed OK
  */
-void ModemLLPower (bool on) {
+bool ModemLLPower (bool on) {
+	bool status = true;
+	bool modem_was_initialised = modem_initialised;
+	
 	DebugPrint (3, "DEBUG: Modem power %s started...\r\n", on ? "on" : "off");
 
-	// if the modem is initialised and we're turning the modem off then turn off DMA transfers
-	if ((! on) && modem_initialised && dma_transfers_up) {
-		if (HAL_UART_AbortReceive (&huart1) != HAL_OK)
-			Error_Handler ();
-			
-		dma_transfers_up = false;
+	// if the UART is initialised and we're turning the modem off then shut it down
+	if ((! on) && modem_initialised) {
+		if (! UARTStop (UART_MODEM))
+			status = false;
+		else
+			modem_initialised = false;
 	}
 
 	// toggle the pwrkey pin
-	HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_RESET);
-	// The difference between an "on" request and an "off" request is the length
-	// of time the PWRKEY pin is held low
-	if (periodic_cb != NULL)
-		periodic_cb ();
-	if (on)
-		HAL_Delay (PWRKEY_ON_PULSE_WIDTH);
-	else
-		HAL_Delay (PWRKEY_OFF_PULSE_WIDTH);
-	HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_SET);
-	if (periodic_cb != NULL)
-		periodic_cb ();
-
-	// If powering on it takes time before the module's UART is ready to respond
-	// If powering off the supply should not be removed for a period after the request
-	if (on)
-		HAL_Delay (PWRKEY_TIME_TILL_ON);
-	else
-		HAL_Delay (PWRKEY_TIME_TILL_OFF);
-
-	// if the modem was initialised and we're turning the modem on then turn DMA transfers back on
-	if (on && modem_initialised && (! dma_transfers_up)) {
-		old_dma_pos = 0;
-		RingBufferClear (&ring_buffer);
-
-		if (! restartUART (&huart1))
-			Error_Handler ();
-
-		// remove any data sitting in receive buffer
-		ModemLLWaitForIdle (PWRKEY_IDLE_CHECK);
+	if (status) {
+		HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_RESET);
+		// The difference between an "on" request and an "off" request is the length
+		// of time the PWRKEY pin is held low
 		if (periodic_cb != NULL)
 			periodic_cb ();
-			
-		dma_transfers_up = true;
+		if (on)
+			HAL_Delay (PWRKEY_ON_PULSE_WIDTH);
+		else
+			HAL_Delay (PWRKEY_OFF_PULSE_WIDTH);
+		HAL_GPIO_WritePin (MODEM_PWRKEY_GPIO_Port, MODEM_PWRKEY_Pin, GPIO_PIN_SET);
+		if (periodic_cb != NULL)
+			periodic_cb ();
+
+		// If powering on it takes time before the module's UART is ready to respond
+		// If powering off the supply should not be removed for a period after the request
+		if (on)
+			HAL_Delay (PWRKEY_TIME_TILL_ON);
+		else
+			HAL_Delay (PWRKEY_TIME_TILL_OFF);
 	}
 
-	DebugPrint (3, "DEBUG: Modem power %s completed\r\n", on ? "on" : "off");
+	// if the UART was initialised and we're turning the modem on then start it up again
+	if (status && on && modem_was_initialised) {
+		// restart the UART
+		status = UARTStart (UART_MODEM);
+		if (status) {
+			modem_initialised = true;
+			
+			// remove any data sitting in receive buffer
+			ModemLLWaitForIdle (PWRKEY_IDLE_CHECK);
+			if (periodic_cb != NULL)
+				periodic_cb ();
+		}
+	}
+
+	DebugPrint (3, "DEBUG: Modem power %s completed %s\r\n", on ? "on" : "off", status ? "ok" : "*not* ok");
+	
+	return status;
 }
 
 /** @brief use the modem's RESET pin to reset the modem */
-void ModemLLReset (void) {
+bool ModemLLReset (void) {
+	bool status = true;
+	bool modem_was_initialised = modem_initialised;
+
 	DebugPrint (3, "DEBUG: Modem reset started...\r\n");
 
-	bool was_dma_up = dma_transfers_up;
-
-	// if DMA transfers are up, turn them off temporarily
-	if (modem_initialised && was_dma_up) {
-		if (HAL_UART_AbortReceive (&huart1) != HAL_OK)
-			Error_Handler ();
-		dma_transfers_up = false;
+	// if the modem is initialised then shut it down
+	if (modem_initialised) {
+		if (! UARTStop (UART_MODEM))
+			status = false;
+		else
+			modem_initialised = false;
 	}
 
 	// toggle the modem's reset pin
-	HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_RESET);
-	HAL_Delay (RESET_PULSE_WIDTH);
-	HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_SET);
-	HAL_Delay (RESET_TIME_TILL_READY);
-	if (periodic_cb != NULL)
-		periodic_cb ();
-
-	// if DMA transfers were up, turn them back on
-	if (modem_initialised && was_dma_up) {
-		old_dma_pos = 0;
-		RingBufferClear (&ring_buffer);
-
-		if (! restartUART (&huart1))
-			Error_Handler ();
-    
-		dma_transfers_up = true;
+	if (status) {
+		HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_RESET);
+		HAL_Delay (RESET_PULSE_WIDTH);
+		HAL_GPIO_WritePin (MODEM_RESET_GPIO_Port, MODEM_RESET_Pin, GPIO_PIN_SET);
+		HAL_Delay (RESET_TIME_TILL_READY);
+		if (periodic_cb != NULL)
+			periodic_cb ();
 	}
 
-	// remove any data sitting in receive buffer
-	ModemLLWaitForIdle (RESET_IDLE_CHECK);
-	if (periodic_cb != NULL)
-		periodic_cb ();
+	// if the modem was initialised then start it up again
+	if (status && modem_was_initialised) {
+		// restart the UART
+		status = UARTStart (UART_MODEM);
+		if (status) {
+			modem_initialised = true;			
 
-	DebugPrint (3, "DEBUG: Modem reset completed\r\n");
+			// remove any data sitting in receive buffer
+			ModemLLWaitForIdle (PWRKEY_IDLE_CHECK);
+			if (periodic_cb != NULL)
+				periodic_cb ();
+		}
+	}
+
+	DebugPrint (3, "DEBUG: Modem reset completed &s\r\n", status ? "ok" : "*not* ok");
+
+	return status;
 }
 
 /**
@@ -238,9 +253,16 @@ bool ModemLLWaitForIdle (uint32_t timeout) {
 	uint32_t last_byte_received_time = start_time;
 	int n_bytes_discarded = 0;
 	while ((HAL_GetTick() - start_time) < timeout && ! status) {
+		// check that DMA transfers are running
+		if (! UARTIsDMAUp (UART_MODEM)) {
+			if (! UARTStart (UART_MODEM))
+				// bail out (status will be false) as we can't receive anything
+				break;
+		}
+		
 		// see if any data has arrived
-		char byte;
-		while (RingBufferGet (&ring_buffer, &byte)) {
+		uint8_t byte;
+		while (UARTReceiveByte (UART_MODEM, &byte)) {
 			last_byte_received_time = HAL_GetTick();
 			n_bytes_discarded += 1;
 		}
@@ -295,10 +317,8 @@ static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args)
 	tx_buffer[len++] = '\n';
 	tx_buffer[len] = '\0';
 
-    if (HAL_UART_Transmit(&huart1, (uint8_t *) tx_buffer, (uint16_t) len, timeout) == HAL_OK) {
-        DebugPrint (4, "DEBUG: Modem Tx: \"%.*s\"\r\n", len -2, tx_buffer);
+    if (UARTTransmit(UART_MODEM, tx_buffer, len, timeout) == HAL_OK)
         return true;
-    }
 
     return false;
 }
@@ -315,8 +335,17 @@ static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args)
 bool ModemLLReceiveLine (uint32_t timeout) {
 	uint32_t start = HAL_GetTick();
 	while ((HAL_GetTick() - start) < timeout) {
-		if (RingBufferGetLine (&ring_buffer, rx_buffer, sizeof (rx_buffer), true) == RBGL_OK) {
-			DebugPrint (4, "DEBUG: Modem Rx: \"%s\"\r\n", rx_buffer);
+		// check that DMA transfers are running
+		if (! UARTIsDMAUp (UART_MODEM)) {
+			if (! UARTStart (UART_MODEM))
+				// bail out as we can't receive anything
+				return false;
+		}
+		
+		// try to get some data
+		if (UARTReceiveLine (UART_MODEM, rx_buffer, sizeof (rx_buffer))) {
+			// remove the trailing CRLF
+			str_trim (rx_buffer);
 			return true;
 		}
 		HAL_Delay (1);
@@ -496,83 +525,3 @@ char *ModemLLGetRxBuffer (void) { return rx_buffer; }
  */
 char *ModemLLGetRxStoredBuffer (void) { return rx_stored_buffer; }
 
-/**
- * @brief HAL DMA callback for UART1 data received via DMA
- * 
- * Received data is added to the modem ring buffer.
- * 
- * @param huart the UART being used
- * @param n_bytes_rx the number of bytes received
- */
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) {
-    if (huart == &huart1) {
-        uint16_t new_bytes = 0;
-
-        // Calculate how many NEW bytes arrived since the last callback
-        if (n_bytes_rx >= old_dma_pos) {
-            new_bytes = n_bytes_rx - old_dma_pos;
-        } else {
-            // DMA wrapped around to 0
-            new_bytes = (DMA_BUFFER_SIZE - old_dma_pos) + n_bytes_rx;
-        }
-
-        // Copy new bytes into ring buffer
-        for (uint16_t i = 0; i < new_bytes; i++) {
-            if (! RingBufferPut(&ring_buffer, (char)dma_rx_buffer[old_dma_pos]))
-				Error_Handler ();
-            old_dma_pos = (old_dma_pos + 1) % DMA_BUFFER_SIZE;
-        }
-    }
-}
-
-/**
- * @brief HAL UART Error Callback
- * 
- * Called by the HAL when a UART transmission/reception error occurs.
- * Clears error flags and restarts circular DMA reception for the modem.
- *
- * @param huart Pointer to the UART handle triggering the error
- */
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-    if (huart == &huart1) {
-		printf("ERROR: UART error 0x%08lx\r\n", huart->ErrorCode);
-
-		// Clear all UART Error Flags in ICR register
-        __HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_OREF | UART_CLEAR_NEF | UART_CLEAR_PEF | UART_CLEAR_FEF);
-        
-        // Reset DMA position tracker
-        old_dma_pos = 0;
-
-		// Clear the ring buffer
-		RingBufferClear(&ring_buffer);
-
-        // Restart circular DMA receive
-        if (modem_initialised && dma_transfers_up) {
-			dma_transfers_up = false;		// reflects actual state, since HAL has turned DMA off
-			if (restartUART (huart))
-				dma_transfers_up = true;
-		}
-    }
-}
-
-/**
- * @brief restart DMA reception from the UART after an error
- * @param huart the UART
- * @retval true if DMA reception was restarted
- */
-static bool restartUART (UART_HandleTypeDef *huart) {
-	bool status = true;
-
-	// Re-initialize UART peripheral state then restart DMA
-    if (HAL_UART_DeInit(huart) != HAL_OK) {
-		status = false;
-    } else if (HAL_UART_Init(huart) != HAL_OK) {
-		status = false;
-	} else if (HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_rx_buffer, sizeof(dma_rx_buffer)) != HAL_OK) {
-		status = false;
-	} else {
-		__HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
-	}
-
-	return status;
-}

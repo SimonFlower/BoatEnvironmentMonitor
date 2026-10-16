@@ -34,37 +34,69 @@
 static bool modem_is_started = false;
 
 /**
- * @brief initialise the modem and power it up
+ * @brief initiaise the modem at command module
  * 
- * This function should be called before any other function in this
+ * This function should be called once before any other function in this
  * module to initialise the state of the module.
  * 
  * @param periodic_cb a callback that is called periodically during lengthy operations
  *        can be NULL
+ * @retval true if the module was initialised OK
  */
-void ModemStart (void (*periodic_cb)(void)) {
+bool ModemInit (void (*periodic_cb)(void)) {
+	// initialise the low level functions
+	return ModemLLInit (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, DEFAULT_RX_TIMEOUT, periodic_cb);
+}
+
+/**
+ * @brief start the modem and power it up
+ * 
+ * This function should be called before working with the modem
+ * 
+ * @retval true if the modem was started OK
+ */
+bool ModemStart (void) {
+	bool status = true;
+	
 	if (! modem_is_started) {
-		// initialise the low level functions
-		ModemLLInit (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, DEFAULT_RX_TIMEOUT, periodic_cb);
-		// soft power on
-		ModemLLPower (true);
+		// start the low level functions
+		status = ModemLLStart ();
 		
-		modem_is_started = true;
+		// soft power on
+		if (status) {
+			modem_is_started = true;
+			status = ModemLLPower (true);
+		}
 	}
+	
+	return status;
 }
 
 /**
  * @brief shutdown the modem
  * 
  * This function should be called after all work with the modem is finished
+ * @retval true if the modem was stopped OK
  */
-void ModemStop (void) {
+bool ModemStop (void) {
+	bool status = true;
+
 	if (modem_is_started) {
 		// shutdown the low level functions
-		ModemLLShutdown ();
-		
-		modem_is_started = false;
+		status = ModemLLStop ();
+		if (status)
+			modem_is_started = false;
 	}
+	
+	return status;
+}
+
+/**
+ * @brief reset the modem
+ * @retval true if modem reset OK
+ */
+bool ModemReset (void) {
+	return ModemLLReset ();
 }
 
 /**

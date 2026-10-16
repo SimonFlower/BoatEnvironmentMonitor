@@ -23,10 +23,11 @@ typedef struct {
                  { __VA_ARGS__ }) / sizeof(ModemResponse_t)  \
     }
     
-void ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void));
-void ModemLLShutdown (void);
-void ModemLLPower (bool on);
-void ModemLLReset (void);
+bool ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeout, void (*pcb)(void));
+bool ModemLLStart (void);
+bool ModemLLStop (void);
+bool ModemLLPower (bool on);
+bool ModemLLReset (void);
 
 bool ModemLLWaitForIdle (uint32_t timeout);
 bool ModemLLWaitForIdleDT (void);

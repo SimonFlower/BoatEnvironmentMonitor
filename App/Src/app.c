@@ -8,11 +8,13 @@
 
 #include "user_io.h"
 #include "modem_at.h"
-#include "modem_ll.h"
 #include "app_iwdg.h"
 #include "dht22.h"
 #include "led.h"
 #include "app.h"
+
+// 2026-01-01T00:00:00 as an Epoch
+#define EPOCH_START_2026	1767225600ul
 
 // TODO: configuration data
 static const char *APN = "TM";
@@ -20,7 +22,7 @@ static const char *HTP_HOSTS[] = {"www.google.com", "www.cloudflare.com", "aws.a
 static const int DEBUG_LEVEL = 5;
 
 // private forward declarations
-static bool ModemServiceUp (void);
+static bool ModemServiceUp (int n_retries);
 static bool ModemServiceDown (void);
 static void WatchdogCallback (void);
 
@@ -35,18 +37,18 @@ void App (void) {
 
 	// bring up the modem
 	printf ("App: Setting up modem\r\n");
-	bool modem_service_up = ModemServiceUp ();
+	bool modem_service_up = ModemServiceUp (3);
 
 	// even if the modem isn't available, it may still be possible to read its real-time clock
 	time_t rtc_time;
 	bool status = ModemGetRTCTime (&rtc_time, 3);
-	// if the real-time clock is within a year of the start of the epoch, assume it
+	// if the real-time clock is before 2026-01-01T00:00:00 then assume it
 	// has never been set, and so isn't usable
     bool modem_clock_valid = true;
-	if (rtc_time < (86400 * 365))
+	if (rtc_time < EPOCH_START_2026)
 		modem_clock_valid = false;
 
-	// read DHT22 sesnors until a NO_SENSOR return from the reading function
+	// read DHT22 sensors until a NO_SENSOR return from the reading function
 	printf ("App: Reading DLT22 sensors\r\n");
 	DHT22Reading_t readings [N_DHT22_SENSORS];
 	int n_dht22_readings = 0;
@@ -73,7 +75,7 @@ void App (void) {
 		}
 	}	
 
-	// brong down the modem
+	// bring down the modem
 	printf ("App: Bringing down modem\r\n");
     status = ModemServiceDown ();
 	if (! status)
@@ -81,7 +83,7 @@ void App (void) {
 
 	// end of program
 	printf ("App: Program finished, status:\r\n"); 
-	printf ("  Modem clock: %s\r\n", modem_clock_valid ? "valid" : "not valid");
+	printf ("  Modem RTC clock: %s\r\n", modem_clock_valid ? "valid" : "not valid");
 	printf ("  Modem service: %s\r\n", modem_service_up ? "up" : "not up");
 	printf ("  DHT22 clock: %s\r\n", dht22_clock_valid ? "valid" : "not valid");
 	printf ("  DHT22 status: %s\r\n", dht22_status ? "ok" : "not ok");
@@ -99,21 +101,22 @@ void App (void) {
 
 /**
  * @brief start the Modem service
+ * @param n_retries the number of times to try restarting the modem
  */
-static bool ModemServiceUp (void) {
-	// Setup modem comms
-	ModemStart (WatchdogCallback);
-
+static bool ModemServiceUp (int n_retries) {
 	// Modem setup...
 	bool modem_status = false;
 	for (int n_retries = 0; (n_retries < 3) && (! modem_status); n_retries ++) {
-		// reset after previous attempts
-		if (n_retries > 0) {
-            ModemLLReset ();
-		}
+		// Initialise the modem data structures
+		modem_status = ModemInit (WatchdogCallback);
+		
+		// Start modem comms
+		if (modem_status)
+			modem_status = ModemStart ();
 
-		// check comms to the modem
-		modem_status = ModemTestComms (3);
+		// Check comms to the modem
+		if (modem_status)
+			modem_status = ModemTestComms (3);
 	
 		// Check the modem is in full functionality mode
 		if (modem_status)
@@ -148,6 +151,10 @@ static bool ModemServiceUp (void) {
 		// update the modem's real-time-clock from the network
 		if (modem_status)
 			modem_status = ModemSyncToHTPTime (HTP_HOSTS, sizeof(HTP_HOSTS) / sizeof(HTP_HOSTS[0]), 3);
+			
+		// if there was a problem, shut the modem down
+		if (! modem_status)
+			ModemStop ();
 	}
 	return modem_status;
 }
