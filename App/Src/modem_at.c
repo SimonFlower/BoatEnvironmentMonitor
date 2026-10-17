@@ -106,39 +106,46 @@ bool ModemReset (void) {
  */
 bool ModemTestComms (int n_retries) {
     bool status = false;
+    DebugPrint (2, true, true, "Modem test comms started, retries = %d", n_retries);
     for (int count=0; count<n_retries && ! status; count ++) {
-		// sent "+++" in case the modem is in data mode - don't check for a succesful response
-        ModemLLTransact (FIVE_SEC_TIMEOUT, ONE_SEC_TIMEOUT, ONE_SEC_TIMEOUT,
-                         NULL,
-                         RESPONSE_LIST( { "OK", false } ),
-                         "+++");
+		// Send "+++" in case the modem is in data mode
+		// Wait for the "guard" time (1 second) either send of the transmission
+		// Drain the input stream of anything the modem has sent
+		HAL_Delay (1000);
+		ModemLLSendCommandDT (false, "+++"); 
+		HAL_Delay (1000);
+		ModemLLWaitForIdle (ONE_SEC_TIMEOUT);
 
         // send "AT" and wait for "OK"
-        status = ModemLLTransact (FIVE_SEC_TIMEOUT, DEFAULT_RX_TIMEOUT, DEFAULT_RX_TIMEOUT,
+        status = ModemLLTransact (FIVE_SEC_TIMEOUT, DEFAULT_RX_TIMEOUT, DEFAULT_RX_TIMEOUT, true,
                                   RESPONSE_LIST( { "ERROR", false } ),
                                   RESPONSE_LIST( { "OK", false } ),
                                   "AT");
 
 		// send "ATE0" to turn off echoing
 		if (status)
-			status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+			status = ModemLLTransactDT (true,
+			                            RESPONSE_LIST( { "ERROR", false } ),
 										RESPONSE_LIST( { "OK", false } ),
 										"ATE0");
                                  
 		// turn off unsolicited response codes
 		if (status)
-			status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+			status = ModemLLTransactDT (true,
+			                            RESPONSE_LIST( { "ERROR", false } ),
 										RESPONSE_LIST( { "OK", false } ),
 										"AT+CEREG=0");
 
         // send "ATI" to request modem information
         if (status)
-            status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
-                                       RESPONSE_LIST( { "OK", false } ),
+            status = ModemLLTransactDT (true,
+                                        RESPONSE_LIST( { "ERROR", false } ),
+                                        RESPONSE_LIST( { "OK", false } ),
                                        "ATI");
     }
     
-    DebugPrint (2, "DEBUG: Modem test comms completed %s\r\n", status ? "successfully" : "unsuccessfully");
+    DebugPrint (2, true, true, "Modem test comms completed %s", 
+                status ? "successfully" : "unsuccessfully");
 
     return status;
 }
@@ -149,7 +156,8 @@ bool ModemTestComms (int n_retries) {
  *         full functionality, or FUNC_FULL for full functionality
  */
 ModemFunctionality_t ModemGetFunctionality (void) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "+CFUN:", true }, { "OK", false } ),
                                      "AT+CFUN?");
     int func_code;
@@ -163,13 +171,12 @@ ModemFunctionality_t ModemGetFunctionality (void) {
         ret_val = FUNC_ERROR;
     }
 
-    DebugPrint (2, "DEBUG: Modem functionality: ");
+    DebugPrint (2, true, false, "Modem functionality: ");
     switch (ret_val) {
-        case FUNC_FULL: DebugPrint (2, "full"); break;
-        case FUNC_LIMITED: DebugPrint (2, "limited (%d)", func_code); break;
-        default: DebugPrint (2, "*** error ***"); break;
+        case FUNC_FULL: DebugPrint (2, false, true, "full"); break;
+        case FUNC_LIMITED: DebugPrint (2, false, true, "limited (%d)", func_code); break;
+        default: DebugPrint (2, false, true, "*** error ***"); break;
     }
-    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -180,10 +187,12 @@ ModemFunctionality_t ModemGetFunctionality (void) {
  * @retval true if the modem was set into full functionality mode, false otherwise
  */
 bool ModemSetFullFunctionality (bool reset) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+CFUN=1%s", reset ? ",1" : "");
-    DebugPrint (2, "DEBUG: Modem %s to full functionality\r\n", status ? "set" : "*not* set");
+    DebugPrint (2, true, true, "Modem %s to full functionality",
+                status ? "set" : "*not* set");
 
     return status;
 }
@@ -209,6 +218,7 @@ bool ModemCheckFullFunctionality (int n_retries) {
  */
 ModemOperSelMode_t ModemGetOperSelMode (void) {
     bool status = ModemLLTransact (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, ONE_MIN_TIMEOUT,
+                                   true,
                                    RESPONSE_LIST( { "ERROR", false } ),
                                    RESPONSE_LIST( { "+COPS:", true }, { "OK", false } ),
                                    "AT+COPS?");
@@ -223,13 +233,12 @@ ModemOperSelMode_t ModemGetOperSelMode (void) {
         ret_val = OPER_SEL_ERROR;
     }
 
-    DebugPrint (2, "DEBUG: Modem operator selection mode: ");
+    DebugPrint (2, true, false, "Modem operator selection mode: ");
     switch (ret_val) {
-        case OPER_SEL_AUTO: DebugPrint (2, "automatic"); break;
-        case OPER_SEL_NOT_AUTO: DebugPrint (2, "not automatic (%d)", op_sel_mode_code); break;
-        default: DebugPrint (2, "*** error ***"); break;
+        case OPER_SEL_AUTO: DebugPrint (2, false, true, "automatic"); break;
+        case OPER_SEL_NOT_AUTO: DebugPrint (2, false, true, "not automatic (%d)", op_sel_mode_code); break;
+        default: DebugPrint (2, false, true, "*** error ***"); break;
     }
-    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -239,10 +248,12 @@ ModemOperSelMode_t ModemGetOperSelMode (void) {
  * @retval true if the modem was set into full functionality mode, false otherwise
  */
 bool ModemSetAutoOperSelMode (void) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+COPS=0");
-    DebugPrint (2, "DEBUG: Modem %s to automatic operator selection mode\r\n", status ? "set" : "*not* set");
+    DebugPrint (2, true, true, "Modem %s to automatic operator selection mode",
+                status ? "set" : "*not* set");
 
     return status;
 }
@@ -268,7 +279,8 @@ bool ModemCheckAutoOperSelMode (int n_retries) {
  *         ready, or SIM_READY when the SIM is ready
  */
 ModemSIMStatus_t ModemGetSIMStatus (void) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "+CPIN:", true }, { "OK", false } ),
                                      "AT+CPIN?");
     ModemSIMStatus_t sim_status;
@@ -281,13 +293,12 @@ ModemSIMStatus_t ModemGetSIMStatus (void) {
         sim_status = SIM_ERROR;
     }
 
-    DebugPrint (2, "DEBUG: Modem SIM status: ");
+    DebugPrint (2, true, false, "Modem SIM status: ");
     switch (sim_status) {
-        case SIM_READY: DebugPrint (2, "ready"); break;
-        case SIM_NOT_READY: DebugPrint (2, "not ready: \"%s\"", ModemLLGetRxStoredBuffer ()); break;
-        default: DebugPrint (2, "*** error ***"); break;
+        case SIM_READY: DebugPrint (2, false, true, "ready"); break;
+        case SIM_NOT_READY: DebugPrint (2, false, true, "not ready: \"%s\"", ModemLLGetRxStoredBuffer ()); break;
+        default: DebugPrint (2, false, true, "*** error ***"); break;
     }
-    DebugPrint (2, "\r\n");
 
     return sim_status;
 }
@@ -319,7 +330,8 @@ bool ModemCheckSIMReady (int n_retries) {
  *         network connection, or SIM_REGISTERED when the modem is registered
  */
 ModemRegStatus_t ModemGetRegistrationStatus (void) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "+CEREG:", true }, { "OK", false } ),
                                      "AT+CEREG?");
     int reg_code;
@@ -335,13 +347,12 @@ ModemRegStatus_t ModemGetRegistrationStatus (void) {
         reg_status = REG_ERROR;
     }
 
-    DebugPrint (2, "DEBUG: Modem network registration status: ");
+    DebugPrint (2, true, false, "Modem network registration status: ");
     switch (reg_status) {
-        case REG_REGISTERED: DebugPrint (2, "registered (%d)", reg_code); break;
-        case REG_NOT_REGISTERED: DebugPrint (2, "not registered (%d)", reg_code); break;
-        default: DebugPrint (2, "*** error ***"); break;
+        case REG_REGISTERED: DebugPrint (2, false, true, "registered (%d)", reg_code); break;
+        case REG_NOT_REGISTERED: DebugPrint (2, false, true, "not registered (%d)", reg_code); break;
+        default: DebugPrint (2, false, true, "*** error ***"); break;
     }
-    DebugPrint (2, "\r\n");
 
     return reg_status;
 }
@@ -367,7 +378,8 @@ bool ModemCheckRegistered (int n_retries) {
  * @retval the signal strength in dBm (which will be a negative number) or 999 for an error
  */
 int ModemGetSignalStrength () {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "+CSQ:", true }, { "OK", false } ),
                                      "AT+CSQ");
     int rssi, rssi_code;
@@ -380,7 +392,7 @@ int ModemGetSignalStrength () {
         rssi = 999;
     }
     
-    DebugPrint (2, "DEBUG: Modem received signal strength: %ddBm\r\n", rssi);
+    DebugPrint (2, true, true, "Modem received signal strength: %ddBm", rssi);
 
     return rssi;
 }
@@ -394,7 +406,8 @@ int ModemGetSignalStrength () {
  *         packet domain connection, or PD_ATTACHED when the modem is registered
  */
 ModemIPStatus_t ModemGetIPState (void) {
-    bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+    bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "+NETOPEN:", true }, { "OK", false } ),
                                      "AT+NETOPEN?");    
     int state;
@@ -410,13 +423,12 @@ ModemIPStatus_t ModemGetIPState (void) {
         ret_val = IPSTAT_ERROR;
     }
 
-    DebugPrint (2, "DEBUG: Modem IP status: ");
+    DebugPrint (2, true, false, "Modem IP status: ");
     switch (ret_val) {
-        case IPSTAT_OPEN: DebugPrint (2, "open"); break;
-        case IPSTAT_CLOSED: DebugPrint (2, "closed"); break;
-        default: DebugPrint (2, "*** error ***"); break;
+        case IPSTAT_OPEN: DebugPrint (2, false, true, "open"); break;
+        case IPSTAT_CLOSED: DebugPrint (2, false, true, "closed"); break;
+        default: DebugPrint (2, false, true, "*** error ***"); break;
     }
-    DebugPrint (2, "\r\n");
 
     return ret_val;
 }
@@ -428,21 +440,26 @@ ModemIPStatus_t ModemGetIPState (void) {
  */
 bool ModemOpenIP (const char *apn) {
 	// turn off PAP / CHAP authentication
-	bool status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+	bool status = ModemLLTransactDT (true,
+                                     RESPONSE_LIST( { "ERROR", false } ),
                                      RESPONSE_LIST( { "OK", false } ),
                                      "AT+CGAUTH=%d,0", NETWORK_CID);
-    DebugPrint (2, "DEBUG: Modem PAP/CHAP authentication on CID %d %s\r\n", NETWORK_CID, status ? "turned off" : "*not* turned off");
+    DebugPrint (2, true, true, "Modem PAP/CHAP authentication on CID %d %s",
+                NETWORK_CID, status ? "turned off" : "*not* turned off");
 	
     // set the modem's access point name
     if (status)
-        status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+        status = ModemLLTransactDT (true,
+                                    RESPONSE_LIST( { "ERROR", false } ),
                                     RESPONSE_LIST( { "OK", false } ),
                                     "AT+CGDCONT=%d,\"IP\",\"%s\"", NETWORK_CID, apn);
-    DebugPrint (2, "DEBUG: Modem APN \"%s\" on CID %d %s\r\n", apn, NETWORK_CID, status ? "set" : "*not* set");
+    DebugPrint (2, true, true, "Modem APN \"%s\" on CID %d %s",
+                apn, NETWORK_CID, status ? "set" : "*not* set");
 
     // start network operations
     if (status) {
         status = ModemLLTransact (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, TWO_MIN_TIMEOUT,
+                                  true,
                                   RESPONSE_LIST( { "ERROR", false }, {"+IP ERROR", true} ),
                                   RESPONSE_LIST( { "OK", false }, { "+NETOPEN:", false } ),
                                   "AT+NETOPEN=%d", NETWORK_CID);
@@ -454,7 +471,7 @@ bool ModemOpenIP (const char *apn) {
                 ModemLLReceiveLine (ONE_SEC_TIMEOUT);
             }
         }
-		DebugPrint (2, "DEBUG: Modem packet domain %s\r\n", status ? "attached" : "*not* attached");
+		DebugPrint (2, true, true, "Modem packet domain %s", status ? "attached" : "*not* attached");
     }
 
     return status;
@@ -466,13 +483,14 @@ bool ModemOpenIP (const char *apn) {
  */
 bool ModemCloseIP (void) {
     bool status = ModemLLTransact (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, TWO_MIN_TIMEOUT,
+                                   true,
                                    RESPONSE_LIST( { "ERROR", false } ),
                                    RESPONSE_LIST( { "+NETCLOSE:", true } ),
                                    "AT+NETCLOSE=%d", NETWORK_CID);
     // there may be an "OK" or "ERROR" still to be picked up
     ModemLLReceiveLine (ONE_SEC_TIMEOUT);
 
-    DebugPrint (2, "DEBUG: Modem packet domain %s\r\n", status ? "detached" : "*not* detached");
+    DebugPrint (2, true, true, "Modem packet domain %s", status ? "detached" : "*not* detached");
 
     return status;
 }
@@ -518,25 +536,28 @@ bool ModemCheckIPClosed (int n_retries) {
  */
 bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries) {
 
-	DebugPrint (2, "DEBUG: Modem syncing to network time\r\n");
+	DebugPrint (2, true, true, "Modem syncing to network time");
 
 	bool status = false;
 	for (int retry=0; (retry<n_retries) && (! status); retry ++) {
 		// bind the HTP protocol to the CID we are using
-		status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+		status = ModemLLTransactDT (true,
+                                    RESPONSE_LIST( { "ERROR", false } ),
 								    RESPONSE_LIST( { "OK", false } ),
 								    "AT+CHTPCFG=\"CID\",%d", NETWORK_CID);   
                                      
 		// remove all HTP servers from the modem's pool - ignore any errors
 		for (int count=0; count<N_HTP_SERVERS && status; count ++) {
-			ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+			ModemLLTransactDT (true,
+                               RESPONSE_LIST( { "ERROR", false } ),
 							   RESPONSE_LIST( { "OK", false } ),
 							   "AT+CHTPSERV=\"DEL\",%d", count);   
 		} 
 
 		// add given HTP hosts to the modem's pool
 		for (int count=0; count<n_htp_hosts && status; count ++) {
-			status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+			status = ModemLLTransactDT (true,
+                                        RESPONSE_LIST( { "ERROR", false } ),
 										RESPONSE_LIST( { "OK", false } ),
 										"AT+CHTPSERV=\"ADD\",\"%s\",80,1", htp_hosts[count]);
 		}
@@ -544,12 +565,13 @@ bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries
 		// update the modem's real-time-clock using HTP
 		if (status)
 			status = ModemLLTransact (DEFAULT_DRAIN_TIMEOUT, DEFAULT_TX_TIMEOUT, ONE_MIN_TIMEOUT,
-									  RESPONSE_LIST( { "ERROR", false } ),
+									  true,
+                                      RESPONSE_LIST( { "ERROR", false } ),
 									  RESPONSE_LIST( { "OK", false } ),
 									  "AT+CHTPUPDATE");
 	}
 
-	DebugPrint (2, "DEBUG: Modem %s to network time\r\n", status ? "synced" : "*not* synced");
+	DebugPrint (2, true, true, "Modem %s to network time", status ? "synced" : "*not* synced");
 
 	return status;
 }
@@ -568,7 +590,8 @@ bool ModemGetRTCTime (time_t *rtc_time, int n_retries) {
 
 	bool status = false;
 	for (int retry=0; (retry<n_retries) && (! status); retry ++) {
-		status = ModemLLTransactDT (RESPONSE_LIST( { "ERROR", false } ),
+		status = ModemLLTransactDT (true,
+                                    RESPONSE_LIST( { "ERROR", false } ),
                                     RESPONSE_LIST( { "+CCLK:", true }, { "OK", false} ),
                                     "AT+CCLK?");
              
@@ -591,7 +614,8 @@ bool ModemGetRTCTime (time_t *rtc_time, int n_retries) {
 	}
 
 	char *time_str = asctime(gmtime(rtc_time));
-	DebugPrint (2, "DEBUG: Modem RTC time %s: %.*s\r\n", status ? "retrieved ok" : "*not* retrieved ok", strlen (time_str) -1, time_str);
+	DebugPrint (2, true, true, "Modem RTC time %s: %.*s",
+	            status ? "retrieved ok" : "*not* retrieved ok", strlen (time_str) -1, time_str);
 
     return status;
 }

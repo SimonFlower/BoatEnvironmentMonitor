@@ -31,16 +31,18 @@ bool ModemLLReset (void);
 
 bool ModemLLWaitForIdle (uint32_t timeout);
 bool ModemLLWaitForIdleDT (void);
-bool ModemLLSendCommand(uint32_t timeout, const char *fmt, ...);
-bool ModemLLSendCommandDT(const char *fmt, ...);
+bool ModemLLSendCommand(uint32_t timeout, bool line_term, const char *fmt, ...);
+bool ModemLLSendCommandDT(bool line_term, const char *fmt, ...);
 bool ModemLLReceiveLine (uint32_t timeout);
 bool ModemLLReceiveLineDT (void);
 bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list);
 bool ModemLLExpectDT (const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list);
 bool ModemLLTransact(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+                     bool line_term,
 					 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 					 const char *fmt, ...);
-bool ModemLLTransactDT(const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+bool ModemLLTransactDT(bool line_term, 
+                       const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 					   const char *fmt, ...);
 
 char *ModemLLGetTxBuffer (void);

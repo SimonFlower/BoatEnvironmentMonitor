@@ -56,8 +56,9 @@ static volatile bool modem_initialised = false;
 static void (*periodic_cb)(void);
 
 // private forward declarations
-static bool ModemLLSendCommandV (uint32_t timeout, const char *fmt, va_list args);
+static bool ModemLLSendCommandV (uint32_t timeout, bool line_term, const char *fmt, va_list args);
 static bool ModemLLTransactV(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+                             bool line_term,
 		        			 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 		        			 const char *fmt, va_list args);
  
@@ -86,7 +87,7 @@ bool ModemLLInit(uint32_t dwfi_timeout, uint32_t dtx_timeout, uint32_t drx_timeo
 	// intialise the UART
 	status = UARTInit (UART_MODEM, rb_storage, sizeof (rb_storage));
 
-	DebugPrint (3, "DEBUG: Modem initialised %s\r\n", status ? "ok" : "*not* ok");
+	DebugPrint (3, true, true, "Modem initialised %s", status ? "ok" : "*not* ok");
 
 	return status;
 }
@@ -111,6 +112,7 @@ bool ModemLLStart (void) {
 		modem_initialised = true;
 	}
 
+	DebugPrint (3, true, true, "Modem %s", status ? "started ok" : "*not* started ok");
 	return status;
 }
 
@@ -128,7 +130,7 @@ bool ModemLLStop (void) {
 		status = UARTStop (UART_MODEM);
 		modem_initialised = false;
 	}
-	DebugPrint (3, "DEBUG: Modem %s\r\n", status ? "stopped ok" : "*not* stopped ok");
+	DebugPrint (3, true, true, "Modem %s", status ? "stopped ok" : "*not* stopped ok");
 
 	return status;
 }
@@ -144,7 +146,7 @@ bool ModemLLPower (bool on) {
 	bool status = true;
 	bool modem_was_initialised = modem_initialised;
 	
-	DebugPrint (3, "DEBUG: Modem power %s started...\r\n", on ? "on" : "off");
+	DebugPrint (3, true, true, "Modem power %s started...", on ? "on" : "off");
 
 	// if the UART is initialised and we're turning the modem off then shut it down
 	if ((! on) && modem_initialised) {
@@ -191,7 +193,7 @@ bool ModemLLPower (bool on) {
 		}
 	}
 
-	DebugPrint (3, "DEBUG: Modem power %s completed %s\r\n", on ? "on" : "off", status ? "ok" : "*not* ok");
+	DebugPrint (3, true, true, "Modem power %s completed %s", on ? "on" : "off", status ? "ok" : "*not* ok");
 	
 	return status;
 }
@@ -201,7 +203,7 @@ bool ModemLLReset (void) {
 	bool status = true;
 	bool modem_was_initialised = modem_initialised;
 
-	DebugPrint (3, "DEBUG: Modem reset started...\r\n");
+	DebugPrint (3, true, true, "Modem reset started...");
 
 	// if the modem is initialised then shut it down
 	if (modem_initialised) {
@@ -235,7 +237,7 @@ bool ModemLLReset (void) {
 		}
 	}
 
-	DebugPrint (3, "DEBUG: Modem reset completed &s\r\n", status ? "ok" : "*not* ok");
+	DebugPrint (3, true, true, "Modem reset completed &s", status ? "ok" : "*not* ok");
 
 	return status;
 }
@@ -277,7 +279,8 @@ bool ModemLLWaitForIdle (uint32_t timeout) {
 			periodic_cb ();
 	}
 
-	DebugPrint (4, "DEBUG: Modem wait for idle, %d bytes discarded, modem %s idle\r\n", n_bytes_discarded, status ? "is" : "is *not*");
+	DebugPrint (3, true, true, "Modem wait for idle, %d bytes discarded, modem %s idle",
+	            n_bytes_discarded, status ? "is" : "is *not*");
 
 	return status;
 }
@@ -286,41 +289,40 @@ bool ModemLLWaitForIdleDT (void) { return ModemLLWaitForIdle (default_wfi_timeou
 /**
  * @brief Send a command to the modem.
  * @param timeout Time to wait for transmission completion (ms).
+ * @param line_term true to send line termination, false for no termination
  * @param fmt printf-style format string. Line termination will be added.
  * @retval true if the command was sent successfully.
  */
-bool ModemLLSendCommand(uint32_t timeout, const char *fmt, ...) {
+bool ModemLLSendCommand(uint32_t timeout, bool line_term, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-	bool status = ModemLLSendCommandV(timeout, fmt, args);
+	bool status = ModemLLSendCommandV(timeout, line_term, fmt, args);
     va_end(args);
 
 	return status;
 }
-bool ModemLLSendCommandDT(const char *fmt, ...) {
+bool ModemLLSendCommandDT(bool line_term, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-	bool status = ModemLLSendCommandV(default_tx_timeout, fmt, args);
+	bool status = ModemLLSendCommandV(default_tx_timeout, line_term, fmt, args);
     va_end(args);
 
 	return status;
 }
-static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args) {
+static bool ModemLLSendCommandV(uint32_t timeout, bool line_term, const char *fmt, va_list args) {
     int len = vsnprintf(tx_buffer, sizeof(tx_buffer), fmt, args);
 
     /* Formatting error or truncation - in the check leave room for the
      * terminating "\r\n\0" */
-    if ((len < 0) || (len >= (int) (sizeof(tx_buffer) -3))) {
+    if ((len < 0) || (len >= (int) (sizeof(tx_buffer) -3)))
         return false;
-    }
-	tx_buffer[len++] = '\r';
-	tx_buffer[len++] = '\n';
+    if (line_term) {
+		tx_buffer[len++] = '\r';
+		tx_buffer[len++] = '\n';
+	}
 	tx_buffer[len] = '\0';
 
-    if (UARTTransmit(UART_MODEM, tx_buffer, len, timeout) == HAL_OK)
-        return true;
-
-    return false;
+    return UARTTransmit(UART_MODEM, tx_buffer, len, timeout);
 }
 
 /**
@@ -328,12 +330,16 @@ static bool ModemLLSendCommandV(uint32_t timeout, const char *fmt, va_list args)
  *        from the modem
  * 
  * The received data is put into the rx_buffer, where it can be
- * interrogated using ModemGetLastRx()
+ * interrogated using ModemGetLastRx(). An empty line from the
+ * modem will be returned (not ignored).
  * 
  * @param timeout amount of time to wait, in mS
- * @retval the data on success, NULL on failure */
+ * @retval true if a line was received OK */
 bool ModemLLReceiveLine (uint32_t timeout) {
+
+	// While not timed out...
 	uint32_t start = HAL_GetTick();
+	rx_buffer [0] = '\0';
 	while ((HAL_GetTick() - start) < timeout) {
 		// check that DMA transfers are running
 		if (! UARTIsDMAUp (UART_MODEM)) {
@@ -342,16 +348,31 @@ bool ModemLLReceiveLine (uint32_t timeout) {
 				return false;
 		}
 		
-		// try to get some data
-		if (UARTReceiveLine (UART_MODEM, rx_buffer, sizeof (rx_buffer))) {
-			// remove the trailing CRLF
-			str_trim (rx_buffer);
-			return true;
+		// Try to get some (more) data
+		size_t len = strlen (rx_buffer);
+		LineRetrievalType_t line_status = UARTReceiveLine (UART_MODEM, 
+														   rx_buffer + len,
+														   sizeof (rx_buffer) - len);
+		switch (line_status) {
+			case LINE_OK:
+				// remove the trailing CRLF
+				str_trim (rx_buffer);
+				return true;
+			case LINE_OVERFLOW:
+				return false;
+			default:
+				// If a line was partially received or no data was received at all
+				// then go round again
+				break;
 		}
-		HAL_Delay (1);
+
+		// Wait before trying again
+		HAL_Delay (20);
 		if (periodic_cb != NULL)
 			periodic_cb ();
 	}
+	
+	// Timeout
 	return false;
 }
 bool ModemLLReceiveLineDT (void) { return ModemLLReceiveLine (default_rx_timeout); }
@@ -384,12 +405,12 @@ bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, cons
 	// clear any previously stored response
 	rx_stored_buffer[0] = '\0';
 
-	DebugPrint (3, "DEBUG: Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
+	DebugPrint (3, true, false, "Modem expecting %s:", succeed_list->count > 1 ? "responses" : "response");
 	for (size_t count=0; count<succeed_list->count; count++) {
 		const ModemResponse_t *succeed = &(succeed_list->items[count]);
-		DebugPrint (3, " \"%s\"", succeed->expect);
+		DebugPrint (3, false, false, " \"%s\"", succeed->expect);
 	}
-	DebugPrint (3, "\r\n");
+	DebugPrint (3, false, true, "");
 	
 	bool status = false;
 	bool done = false;
@@ -456,6 +477,7 @@ bool ModemLLExpectDT (const ModemResponseList_t *fail_list, const ModemResponseL
  *        starting the transation - 0 means don't drain the queue
  * @param tx_timeout the time to wait for the command to be sent
  * @param rx_timeout the time to wait for the expeceted result in mS
+ * @param line_term true to send line termination, false for no termination
  * @param fail_list a list of responses that, if seen, causes the function to fail -
  *        all responses in the list are checked for each line received - any
  * 		  single match causes failure - may be NULL
@@ -464,45 +486,45 @@ bool ModemLLExpectDT (const ModemResponseList_t *fail_list, const ModemResponseL
  * 		  reponses in the list must be matched
  */
 bool ModemLLTransact(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+					 bool line_term, 
 					 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 					 const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	bool status = ModemLLTransactV (drain_timeout, tx_timeout, rx_timeout,
+	bool status = ModemLLTransactV (drain_timeout, tx_timeout, rx_timeout, line_term,
 	                                fail_list, succeed_list, fmt, args);
 	va_end (args);
 	
 	return status;
 }
-bool ModemLLTransactDT(const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
+bool ModemLLTransactDT(bool line_term,
+                       const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 					   const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	bool status = ModemLLTransactV (default_wfi_timeout, default_tx_timeout, default_rx_timeout,
-	                                fail_list, succeed_list, fmt, args);
+	                                line_term, fail_list, succeed_list, fmt, args);
 	va_end (args);
 	
 	return status;
 }
 static bool ModemLLTransactV(uint32_t drain_timeout, uint32_t tx_timeout, uint32_t rx_timeout,
+							 bool line_term,
 		        			 const ModemResponseList_t *fail_list, const ModemResponseList_t *succeed_list,
 		        			 const char *fmt, va_list args) {
 	bool status = true;
 
 	// drain the receiver
-	if (drain_timeout > 0) {
+	if (drain_timeout > 0)
 		status = ModemLLWaitForIdle (drain_timeout);
-	}
 
 	// send the command
-	if (status) {
-		status = ModemLLSendCommandV(tx_timeout, fmt, args);
-	}
+	if (status)
+		status = ModemLLSendCommandV(tx_timeout, line_term, fmt, args);
 	
 	// wait for the response
-	if (status) {
+	if (status)
 		status = ModemLLExpect (rx_timeout, fail_list, succeed_list);
-	}
 	
 	return status;
 }

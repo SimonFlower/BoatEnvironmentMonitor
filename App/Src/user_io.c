@@ -28,15 +28,20 @@ void DebugInit (int dbg_lvl) {
 /** 
  * @brief print debug messages to the "console"
  * @param msg_level the level of this debug message (1 to 5)
+ * @param print_header if true print the "DEBUG" header start of the message
+ * @param print_trailer if true finalise the message
  * @param format the printf style format string
  */
-void DebugPrint(int msg_level, char *format, ...) {
+void DebugPrint(int msg_level, bool print_header, bool print_trailer, char *format, ...) {
 	if (msg_level <= debug_level) {
+		if (print_header)
+			printf ("DEBUG (%d): ", msg_level);
 		va_list args;
-
 		va_start(args, format);
 		vprintf(format, args);
 		va_end(args);
+		if (print_trailer)
+			printf ("\r\n");
 	}
 } 
 
@@ -49,13 +54,14 @@ void DebugPrint(int msg_level, char *format, ...) {
  */
 void DebugDump (int msg_level, const char *format, const char *buffer, int len, ...) {
 	if (msg_level <= debug_level) {
-		va_list args;
+		printf ("DEBUG (%d): ", msg_level);
 
+		va_list args;
 		va_start(args, len);
 		vprintf(format, args);
 		va_end(args);
 
-		printf (": \"");
+		printf (" \"");
 		const char *ptr = buffer;
 		for (int count=0; count<len; count++) {
 			unsigned char c = (unsigned char) *ptr;
@@ -66,6 +72,31 @@ void DebugDump (int msg_level, const char *format, const char *buffer, int len, 
 			ptr ++;
 		}
 		printf ("\"\r\n");
+	}
+}
+
+/**
+ * @brief dump an integer array
+ * @param msg_level the level of this debug message (1 to 5)
+ * @param format the printf style format string
+ * @param array the array to dump
+ * @param len the length of the buffer
+ */
+void DebugDump2 (int msg_level, const char *format, const uint32_t *array, int len, ...) {
+	if (msg_level <= debug_level) {
+		printf ("DEBUG (%d): ", msg_level);
+
+		va_list args;
+		va_start(args, len);
+		vprintf(format, args);
+		va_end(args);
+
+		printf (" [");
+		for (int count=0; count<len; count++) {
+			if (count > 0) printf (", ");
+			printf ("%lu", *(array + count));
+		}
+		printf ("]\r\n");
 	}
 }
 

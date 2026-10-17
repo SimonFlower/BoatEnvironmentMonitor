@@ -1,4 +1,4 @@
-/** a simple fixed size ring fer implementation where data can be inserted
+/** a simple ring buffer implementation where data can be inserted
  * and extracted asynchronously */
 
 #include <stddef.h>
@@ -15,9 +15,11 @@
 #endif
 
 /**
- * @brief Intiailise a ring buffer
+ * @brief Intialise a ring buffer
  * 
- * Call this only once before any other operation on the ring buffer
+ * Call this only once before any other operation on the ring buffer.
+ * If the parameters are incorrect, the ring buffer will be initialised
+ * with an empty buffer.
  * 
  * @param rb the buffer to initialise - silently ignore missing ring buffer
  * @param buf the storage to use - this must not be used by any other code
@@ -25,8 +27,13 @@
  */
 void RingBufferInit (RingBuffer_t *rb, uint8_t *buf, size_t size) {
 	if (rb) {
-		rb->buf = buf;
-		rb->size = size;
+	    if (size < 2 || size > UINT16_MAX) {
+		    rb->buf = (uint8_t *) 0;
+		    rb->size = 0;
+	    } else {
+			rb->buf = buf;
+			rb->size = size;
+		}
 		rb->head = 0;
 		rb->tail = 0;
 		rb->overflow_count = 0;
@@ -34,11 +41,21 @@ void RingBufferInit (RingBuffer_t *rb, uint8_t *buf, size_t size) {
 }
 
 /**
+ * @brief check whether a ring buffer is initialised
+ * @return true if the ring buffer has been initialised
+ */
+bool RingBufferIsInit (RingBuffer_t *rb) {
+	if (! rb || ! rb->buf)
+		return false;
+	return true;
+}
+
+/**
  * @brief Empty a ring buffer
  * @param rb the buffer to empty - silently ignore missing ring buffer
  */
 void RingBufferClear (RingBuffer_t *rb) {
-	if (rb) {
+	if (RingBufferIsInit (rb)) {
 		rb->head = 0;
 		rb->tail = 0;
 	}
@@ -50,7 +67,7 @@ void RingBufferClear (RingBuffer_t *rb) {
  * @param byte the byte to add
  * @retval true if the byte was added */
 bool RingBufferPut (RingBuffer_t *rb, uint8_t byte) {
-	if (! rb) return false;
+	if (! RingBufferIsInit (rb)) return false;
 		
     uint16_t next = (rb->head + 1) % rb->size;
 
@@ -72,7 +89,7 @@ bool RingBufferPut (RingBuffer_t *rb, uint8_t byte) {
  * @param byte the byte to retrieve
  * @retval true if the byte was retrieved */
 bool RingBufferGet (RingBuffer_t *rb, uint8_t *byte) {
-	if (! rb) return false;
+	if (! RingBufferIsInit (rb)) return false;
     if (rb->head == rb->tail) return false;
 
     *byte = *(rb->buf + rb->tail);
@@ -89,30 +106,60 @@ bool RingBufferGet (RingBuffer_t *rb, uint8_t *byte) {
  * @retval the number of bytes 
  */
 uint16_t RingBufferAvailable (RingBuffer_t *rb) {
-	if (! rb) return 0;
-    if (rb->head >= rb->tail)
-        return rb->head - rb->tail;
+	if (! RingBufferIsInit (rb)) return 0;
 
-    return rb->size - rb->tail + rb->head;
+    // Snapshot head and tail atomically to prevent race conditions
+    uint16_t snap_head = rb->head;
+    uint16_t snap_tail = rb->tail;
+	memory_barrier();
+
+    if (snap_head >= snap_tail)
+        return snap_head - snap_tail;
+
+    return rb->size - snap_tail + snap_head;
 }
 
 /**
  * @brief get a newline terminated string from the ring buffer
  * 
- * The string is always null terminated
+ * The string is always null terminated, provided the ring buffer has
+ * been initialised and the size of the supplied line buffer is at
+ * least 1. If any data is available it will be returned. Data is 
+ * never discarded. 
+ * 
+ * This function does not block - it returns whatever is available 
+ * at the time of the call. More data may arrive after the call.
+ * This can be retrieved using a while loop:
+ * 
+ *   buffer [0] = '\0';
+ *   while (RingBufferGetLine(rb, 
+ *                            buffer + strlen(buffer),
+ *                            sizeof(buffer) - strlen(buffer)) == LINE_PARTIAL)
+ *     ...
  * 
  * @param rb the ring buffer
- * @param line the line, including its terminating newline
+ * @param line the line, including its terminating newline - on repeated
+ *        calls (as described in the example above) line will only be
+ *        filled with new data
  * @param size the size of the line which must be at least 2 bytes
- * @param discard_on_overflow in the event of an overflow, discard data
- *        from the ring buffer up to the size of the line
- * @retval RBGL_OK - a line was retrieved
- *         RBGL_NA - a line was not present in the ring buffer
- *         RBGL_OVERFLOW - the line is too small for the data
+ * @retval LINE_OK a line, including newline terminator, was retrieved
+ *         LINE_PARTIAL data was retrieved but no newline was found
+ *         LINE_OVERFLOW data was retrieved but there is not enough
+ *                       space to store it all - as much data as
+ *                       possible has been retrieved - more will
+ *                       be available on a subsequent call - the caller
+ *                       may choose to retrieve more data or abandon the
+ *                       attempt and clear the buffer
+ *         LINE_NONE there was not data available
  */
-RBGLReturn_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size, bool discard_on_overflow) {
-	if (! rb) return RBGL_NA;
-    if (size <= 1) return RBGL_OVERFLOW;
+LineRetrievalType_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size) {
+	// Ensure line is returned terminated
+	if (size > 0)
+		line[0] = '\0';
+
+	// Check parameters
+	if (! line || ! RingBufferIsInit (rb)) return LINE_NONE;
+    if (size <= 1) return LINE_OVERFLOW;
 
     // Snapshot head and tail atomically to prevent race conditions
     uint16_t snap_head = rb->head;
@@ -124,38 +171,47 @@ RBGLReturn_t RingBufferGetLine (RingBuffer_t *rb, char *line, size_t size, bool 
                          ? (snap_head - snap_tail) 
                          : (rb->size - snap_tail + snap_head);
 
-	// use a separate index for the output data
+	// Use a separate index for the output data
     size_t out_idx = 0;
 
-    for (uint16_t count = 0; count < available; count++) {
-        uint16_t pos = (snap_tail + count) % rb->size;
-        uint8_t ch = *(rb->buf + pos);
+	// Get whatever is available...
+	bool overflow = false;
+	bool newline_found = false;
+	uint16_t pos = snap_tail;
+    for (uint16_t count = 0; 
+                  count < available && ! overflow && ! newline_found; 
+                  count++) {
+		// Check for overflow
+		if (out_idx >= size - 1) {
+			overflow = true;
+		} else {
+			// Get the byte
+			pos = (snap_tail + count) % rb->size;
+			uint8_t ch = *(rb->buf + pos);
 
-		// check for overflow - keep 2 bytes spare because if there is
-		// a newline we will need to add the newline and a null terminator
-		if (out_idx >= size - 2) {
-			if (discard_on_overflow) {
-				// Consumer safely updates tail without caring if head changed concurrently
-				memory_barrier();
-				rb->tail = (pos + 1) % rb->size;
-			}
-			line[out_idx] = '\0';
-			return RBGL_OVERFLOW;
-		}
+			// Store the byte
+			line[out_idx++] = (char) ch;
             
-		// store the byte
-		line[out_idx++] = (char) ch;
-            
-		// check for newline
-		if (ch == '\n') {
-			line[out_idx] = '\0';
-			// Consumer safely updates tail without caring if head changed concurrently
-			memory_barrier();
-			rb->tail = (pos + 1) % rb->size;
-			return RBGL_OK;
+			// Check for newline
+			if (ch == '\n') 
+				newline_found = true;
 		}
     }
 
-    return RBGL_NA;
+	// Finalise the returned line
+	line[out_idx] = '\0';
+	
+	// Update the ring buffer
+	if (available > 0) {
+		// Consumer safely updates tail without caring if head changed concurrently
+		memory_barrier();
+		rb->tail = (pos + 1) % rb->size;
+	}
+
+	// work out what to return
+	if (available == 0) return LINE_NONE;
+	if (overflow) return LINE_OVERFLOW;
+	if (newline_found) return LINE_OK;
+	return LINE_PARTIAL;
 }
 
