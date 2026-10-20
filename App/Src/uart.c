@@ -19,7 +19,7 @@
 #include "ring.h"
 #include "uart.h"
 
-#define DMA_BUFFER_SIZE	256
+#define DMA_BUFFER_SIZE	512
 
 // A structure used to hold the current state of a UART
 typedef struct { 
@@ -31,6 +31,7 @@ typedef struct {
 	uint8_t *dma_rx_buffer;	              // The buffer used to pull data out of DMA
     volatile uint16_t old_dma_pos;        // Tracks last processed DMA position
 	RingBuffer_t ring_buffer;	          // The ring buffer used to transfer data to the user
+	UARTDiagnostics_t diagnostics;		  // Diagnostic fields
 } UARTState_t;
 
 // A UART state structure for each UART that this module controls
@@ -82,6 +83,10 @@ bool UARTInit (UartID_t id, uint8_t *rb_storage, size_t rb_size) {
 			uart_ptr->dma_transfers_up = false;
 			uart_ptr->huart_error_flag = false;
 			uart_ptr->old_dma_pos = 0;
+			uart_ptr->diagnostics.error_count = 0;
+			uart_ptr->diagnostics.last_rx_size = 0;
+			uart_ptr->diagnostics.rx_event_count = 0;
+			uart_ptr->diagnostics.total_new_bytes = 0;
 		}
 	}
 		
@@ -103,9 +108,13 @@ bool UARTStart (UartID_t id) {
 	uart_ptr->huart_error_flag = false;
 
 	if (! uart_ptr->dma_transfers_up) {
-		// Clear the DMA transfer ring buffer
+		// Clear the DMA transfer ring buffer and the diagnostics
 		RingBufferClear (&(uart_ptr->ring_buffer));
 		uart_ptr->old_dma_pos = 0;
+		uart_ptr->diagnostics.error_count = 0;
+		uart_ptr->diagnostics.last_rx_size = 0;
+		uart_ptr->diagnostics.rx_event_count = 0;
+		uart_ptr->diagnostics.total_new_bytes = 0;
 
 		// Initialize UART peripheral state then start DMA
 		if (HAL_UART_DeInit(uart_ptr->huart) != HAL_OK) {
@@ -118,7 +127,11 @@ bool UARTStart (UartID_t id) {
 				uart_ptr->dma_transfers_up = false;
 				status = false;
 			} else {
-				__HAL_DMA_DISABLE_IT(uart_ptr->huart->hdmarx, DMA_IT_HT);
+				// Check the actual DMA position
+				uart_ptr->old_dma_pos = DMA_BUFFER_SIZE - (uint16_t) __HAL_DMA_GET_COUNTER (uart_ptr->huart->hdmarx);
+				if (uart_ptr->old_dma_pos >= DMA_BUFFER_SIZE) uart_ptr->old_dma_pos = 0;
+				// Re-clear the ring buffer
+				RingBufferClear (&(uart_ptr->ring_buffer));
 			}
 		}
 	}
@@ -292,6 +305,18 @@ LineRetrievalType_t UARTReceiveLine (UartID_t id, char *line, size_t size) {
 }
 
 /**
+ * @brief Get the UART diagnotics
+ * @param id the UART to get diagnostics on
+ * @retval The diagnsotics OR NULL if there was an error
+ */
+UARTDiagnostics_t *UARTGetDiagnostics (UartID_t id) {
+	UARTState_t *uart_ptr = getUartPtr (id, true);
+	if (! uart_ptr)
+		return NULL;
+	return &(uart_ptr->diagnostics);
+}
+
+/**
  * @brief HAL DMA callback for uart data received via DMA
  * 
  * Received data is added to the uart's ring buffer.
@@ -302,15 +327,25 @@ LineRetrievalType_t UARTReceiveLine (UartID_t id, char *line, size_t size) {
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) {
 	UARTState_t *uart_ptr = findUart (huart);
     if (uart_ptr) {
-        uint16_t new_bytes = 0;
-
+		// Where has the DMA actually written up to? Recalculate n_bytes_rx
+		// since it is not trustworthy on TC events; use the DMA counter instead
+		uint16_t n_bytes_rx = DMA_BUFFER_SIZE - (uint16_t) __HAL_DMA_GET_COUNTER (huart->hdmarx);
+		if (n_bytes_rx >= DMA_BUFFER_SIZE)
+			n_bytes_rx = 0;
+		
         // Calculate how many NEW bytes arrived since the last callback
+        uint16_t new_bytes = 0;
         if (n_bytes_rx >= uart_ptr->old_dma_pos) {
             new_bytes = n_bytes_rx - uart_ptr->old_dma_pos;
         } else {
             // DMA wrapped around to 0
             new_bytes = (DMA_BUFFER_SIZE - uart_ptr->old_dma_pos) + n_bytes_rx;
         }
+        
+        // Update diagnostics
+        uart_ptr->diagnostics.rx_event_count += 1;
+        uart_ptr->diagnostics.last_rx_size = n_bytes_rx;
+        uart_ptr->diagnostics.total_new_bytes += new_bytes;
 
         // Copy new bytes into ring buffer
         for (uint16_t i = 0; i < new_bytes; i++) {
@@ -334,6 +369,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t n_bytes_rx) 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 	UARTState_t *uart_ptr = findUart (huart);
     if (uart_ptr) {
+		uart_ptr->diagnostics.error_count += 1;
 		uart_ptr->huart_error_flag = true;
 		uart_ptr->huart_error_code = huart->ErrorCode;
 

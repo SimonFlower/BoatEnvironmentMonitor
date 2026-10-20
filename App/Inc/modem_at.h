@@ -3,6 +3,8 @@
 
 #include <time.h>
 
+#include "config.h"
+
 // return values when checking the modem's functionality mode
 typedef enum {FUNC_ERROR = -1, FUNC_FULL = 1, FUNC_LIMITED = 2} ModemFunctionality_t;
 
@@ -46,7 +48,7 @@ bool ModemCloseIP (void);
 bool ModemCheckIPOpened (const char *apn, int n_retries);
 bool ModemCheckIPClosed (int n_retries);
 
-bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries);
+bool ModemSyncToHTPTime (const char htp_hosts[][CFG_HTP_HOST_LEN], int n_htp_hosts, int n_retries);
 bool ModemGetRTCTime (time_t *rtc_time, int n_retries);
 time_t ModemParseCCLKToUTC (const char *cclk_str);
 

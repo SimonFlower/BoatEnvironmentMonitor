@@ -13,6 +13,7 @@ CUBEMX_DIR = CubeMX
 
 # Custom application paths (absolute paths)
 APP_C_SOURCES = $(shell pwd)/App/Src/app.c \
+			    $(shell pwd)/App/Src/config.c \
 			    $(shell pwd)/App/Src/user_io.c \
 			    $(shell pwd)/App/Src/modem_at.c \
 			    $(shell pwd)/App/Src/modem_ll.c \
@@ -32,7 +33,8 @@ all: patch
 		EXTRA_C_INCLUDES="$(APP_C_INCLUDES)"
 
 patch:
-	@./patch_cubemx_makefile.sh
+	./patch_cubemx_makefile.sh
+	./patch_cubemx_link_script.sh
 
 clean:
 	$(MAKE) -C $(CUBEMX_DIR) clean

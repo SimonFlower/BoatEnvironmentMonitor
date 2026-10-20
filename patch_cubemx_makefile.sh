@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+#
+# A script that modifies the CubeMX generated Makefile (in CubeMX/Makefile) to
+# add in sources used by this application so that running "make" in the
+# CubeMX directory builds the whole application (the application code is in
+# the top level "App" directory).
+
 set -e
 
 MAKEFILE="CubeMX/Makefile"

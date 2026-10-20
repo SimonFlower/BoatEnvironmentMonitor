@@ -427,10 +427,8 @@ bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, cons
 				for (size_t count=0; count<fail_list->count; count++) {
 					const ModemResponse_t *fail = &(fail_list->items[count]);
 					if (strstr (rx_buffer, fail->expect) != NULL) {
-						if (fail->store) {
-							strncpy(rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer) - 1);
-							rx_stored_buffer[sizeof(rx_stored_buffer) - 1] = '\0';
-						}
+						if (fail->store)
+							strncpy_term (rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer));
 						done = true;
 					}
 				}
@@ -438,10 +436,8 @@ bool ModemLLExpect (uint32_t timeout, const ModemResponseList_t *fail_list, cons
 			
 			// check for successful responses
 			if (strstr (rx_buffer, succeed->expect) != NULL) {
-				if (succeed->store) {
-					strncpy(rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer) - 1);
-					rx_stored_buffer[sizeof(rx_stored_buffer) - 1] = '\0';
-				}
+				if (succeed->store)
+					strncpy_term (rx_stored_buffer, rx_buffer, sizeof(rx_stored_buffer));
 				n_found += 1;
 				if (n_found >= succeed_list->count) {
 					status = true;

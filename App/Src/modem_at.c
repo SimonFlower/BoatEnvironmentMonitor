@@ -10,6 +10,7 @@
 #include "stm32l4xx_hal.h"
 
 #include "user_io.h"
+#include "config.h"
 #include "modem_ll.h"
 #include "modem_at.h"
 
@@ -534,7 +535,7 @@ bool ModemCheckIPClosed (int n_retries) {
  * @param n_retries number of times to retry
  * @retval true if the time was received OK, false for an error
  */
-bool ModemSyncToHTPTime (const char *htp_hosts[], int n_htp_hosts, int n_retries) {
+bool ModemSyncToHTPTime (const char htp_hosts[][CFG_HTP_HOST_LEN], int n_htp_hosts, int n_retries) {
 
 	DebugPrint (2, true, true, "Modem syncing to network time");
 
