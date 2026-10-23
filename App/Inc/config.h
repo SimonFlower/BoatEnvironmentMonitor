@@ -49,6 +49,7 @@ typedef struct {
 _Static_assert(sizeof(ConfigData_t) <= FLASH_PAGE_SIZE, "ConfigData_t too large for flash memory space");
 
 // Forward declarations
+void SetConfigDefaults (void);
 ConfigData_t *GetConfig (void);
 bool SaveConfig (void);
 void *GetConfigMemAddr (void);

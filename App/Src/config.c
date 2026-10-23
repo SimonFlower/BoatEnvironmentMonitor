@@ -27,11 +27,35 @@ extern uint8_t __config_end__[];
 static ConfigData_t config_data;
 
 /**
+ * @brief Set default values for all configuration parameters
+ */
+void SetConfigDefaults (void) {
+	config_data.magic_no = CONFIG_MAGIC_NUMBER;
+	config_data.debug_level = 5;
+	config_data.loaded_from_flash = false;
+	strncpy_term (config_data.apn, "TM", CFG_APN_LEN);
+	strncpy_term (config_data.htp_hosts[0], "www.google.com", CFG_HTP_HOST_LEN);
+	strncpy_term (config_data.htp_hosts[1], "www.cloudflare.com", CFG_HTP_HOST_LEN);
+	strncpy_term (config_data.htp_hosts[2], "aws.amazon.com", CFG_HTP_HOST_LEN);
+	strncpy_term (config_data.htp_hosts[3], "www.microsoft.com", CFG_HTP_HOST_LEN);
+	strncpy_term (config_data.dht22_names[0], "Temperature / Humidity 1", CFG_DHT22_NAME_LEN);
+	strncpy_term (config_data.dht22_names[1], "Temperature / Humidity 2", CFG_DHT22_NAME_LEN);
+	strncpy_term (config_data.dht22_names[2], "Temperature / Humidity 3", CFG_DHT22_NAME_LEN);
+	strncpy_term (config_data.dht22_names[3], "Temperature / Humidity 4", CFG_DHT22_NAME_LEN);
+	strncpy_term (config_data.dht22_names[4], "Temperature / Humidity 5", CFG_DHT22_NAME_LEN);
+	strncpy_term (config_data.battery_adc_names [0], "Battery 1", CFG_BATTERY_ADC_NAME_LEN);
+	strncpy_term (config_data.battery_adc_names [1], "Battery 2", CFG_BATTERY_ADC_NAME_LEN);
+	strncpy_term (config_data.battery_adc_names [2], "Battery 3", CFG_BATTERY_ADC_NAME_LEN);
+}
+
+/**
  * @brief Load the configuration data from flash memory
  * 
  * This function returns a pointer to a static configuration data
  * structure. Callers can modify the structure, then call SaveConfig
- * to store the updated values back to flash memory.
+ * to store the updated values back to flash memory. If a caller
+ * modifies the structure, it will affect all "copies" that have
+ * been retrieved by this call.
  * 
  * @retval The configuration data
  */
@@ -50,22 +74,7 @@ ConfigData_t *GetConfig (void) {
 		} else {
 		    memset(&config_data, 0, sizeof config_data);
 			// If the configuration data wasn't retrieved, use defaults
-			config_data.magic_no = CONFIG_MAGIC_NUMBER;
-			config_data.debug_level = 5;
-			config_data.loaded_from_flash = false;
-			strncpy_term (config_data.apn, "TM", CFG_APN_LEN);
-			strncpy_term (config_data.htp_hosts[0], "www.google.com", CFG_HTP_HOST_LEN);
-			strncpy_term (config_data.htp_hosts[1], "www.cloudflare.com", CFG_HTP_HOST_LEN);
-			strncpy_term (config_data.htp_hosts[2], "aws.amazon.com", CFG_HTP_HOST_LEN);
-			strncpy_term (config_data.htp_hosts[3], "www.microsoft.com", CFG_HTP_HOST_LEN);
-			strncpy_term (config_data.dht22_names[0], "Temperature / Humidity 1", CFG_DHT22_NAME_LEN);
-			strncpy_term (config_data.dht22_names[1], "Temperature / Humidity 2", CFG_DHT22_NAME_LEN);
-			strncpy_term (config_data.dht22_names[2], "Temperature / Humidity 3", CFG_DHT22_NAME_LEN);
-			strncpy_term (config_data.dht22_names[3], "Temperature / Humidity 4", CFG_DHT22_NAME_LEN);
-			strncpy_term (config_data.dht22_names[4], "Temperature / Humidity 5", CFG_DHT22_NAME_LEN);
-			strncpy_term (config_data.battery_adc_names [0], "Battery 1", CFG_BATTERY_ADC_NAME_LEN);
-			strncpy_term (config_data.battery_adc_names [1], "Battery 2", CFG_BATTERY_ADC_NAME_LEN);
-			strncpy_term (config_data.battery_adc_names [2], "Battery 3", CFG_BATTERY_ADC_NAME_LEN);
+			SetConfigDefaults ();
 		}
 			
 		first = false;

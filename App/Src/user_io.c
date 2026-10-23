@@ -3,12 +3,15 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <string.h>
 #include <ctype.h>
 
 #include "stm32l4xx_hal.h"
 
 #include "config.h"
 #include "uart.h"
+#include "utils.h"
+#include "led.h"
 #include "user_io.h"
 
 // Storage for the ring buffer used to receive data from the UART
@@ -56,6 +59,248 @@ bool UserIOInit (uint8_t dbg_lvl) {
 
 	return status;
 }
+
+/**
+ * @brief process user commands
+ * 
+ * This routine retrieves the program configuration and possibly changes it
+ * Other places where the configuration has already been loaded will be
+ * affected.
+ * 
+ * @param config the configuration
+ * @param query_user true to ask the user whether to enter the command processer
+ *        false to enter without asking
+ * @param timeout the amount of time to wait for the user to respond to the queury. in mS
+ * @param periodic_cb a callback that is called periodically during lengthy operations
+ *        can be NULL
+ */
+void CommandProcesser (ConfigData_t * config, bool query_user, uint32_t timeout, void (*periodic_cb)(void)) {
+	// if the UART isn't initialised, we can't do anything
+	if (! uart_initialised)
+		return;
+	
+	// Wait for the user to press a key before entering command mode
+	bool done = false;
+	if (query_user) {
+		uint32_t start_time = HAL_GetTick();
+		uint32_t elapse = 0;
+		bool user_responded = false;
+		do {
+			elapse = HAL_GetTick() - start_time;
+			printf ("Press any key to enter programming mode (%d)\r", ((int) timeout - (int) elapse) / 1000 );
+			
+			uint8_t byte;
+			user_responded = UARTReceiveByte (UART_STLINK, &byte);
+			
+			if (! user_responded)
+				HAL_Delay (100);
+		} while ((elapse < timeout) && (! user_responded));
+		printf ("\r\n");
+		if (! user_responded)
+			done = true;
+	}
+
+	// Tell the user how to get help
+	if (! done)
+		printf ("To get help type 'help'\r\n");
+
+	// Get and process commands
+	bool config_updated = false;
+	while (! done) {
+		// Print a prompt
+		printf("> ");
+
+		// Get the next line
+		char line [100];
+		while (! UserIOReadLine (line, sizeof (line))) {
+			if (periodic_cb != NULL)
+				periodic_cb ();
+		}
+
+		// The commands have at most 4 parameters. In some commands
+		// the final parameter may include spaces. Split the line
+		// into (up to) 4 tokens
+		char *tokens [4];
+		char *line_ptr = str_trim (line);
+		for (int count=0; count<4; count ++) {
+			size_t space_len;
+			size_t token_len = get_next_token (line_ptr, &space_len);
+			if (token_len == 0 && space_len == 0) {
+				// there were no more tokens
+				tokens [count] = "";
+			} else {
+				*(line_ptr + token_len) = '\0';
+				tokens[count] = line_ptr;
+				line_ptr += token_len + space_len;
+			}
+		}
+		
+		// Parse then run the command
+		if (! strcmp (tokens[0], "end")) {
+			bool do_it = true;
+			if (config_updated)
+				do_it = UserIOQuery ("Configuration has not been saved", periodic_cb);
+			if (do_it) {
+				printf ("Program terminating\r\n");
+				BlinkLEDForever (LED_SUCCESS, periodic_cb);
+			}
+		} else if (! strcmp (tokens[0], "defaults")) {
+			SetConfigDefaults ();
+			printf ("Configuration set to defaults\r\n");
+		} else if (! strcmp (tokens[0], "help")) {
+			PrintHelp ();
+		} else if (! strcmp (tokens[0], "run")) {
+			bool do_it = true;
+			if (config_updated)
+				do_it = UserIOQuery ("Configuration has not been saved", periodic_cb);
+			if (do_it)
+				done = true;
+		} else if (! strcmp (tokens[0], "restart")) {
+			bool do_it = true;
+			if (config_updated)
+				do_it = UserIOQuery ("Configuration has not been saved", periodic_cb);
+			if (do_it) {
+				// Trigger a reboot
+				NVIC_SystemReset();
+			}
+		} else if (! strcmp (tokens[0], "save")) {
+			if (SaveConfig ()) {
+				printf ("Configuration saved to flash memory\r\n");
+				config_updated = false;
+			} else {
+				printf ("There was an error saving the configuration to flash memory\r\n");
+			}
+		} else if (! strcmp (tokens[0], "set")) {
+			if (! strcmp (tokens[1], "apn")) {
+				if (strlen (tokens [2]) == 0) {
+					printf ("Missing access point name\r\n");
+				} else if (strlen (tokens[3]) != 0) {
+					printf ("Extra parameter to \"apn\" command: %s\r\n", tokens[3]);
+				} else if (strlen (tokens[2]) >= CFG_APN_LEN) {
+					printf ("Access point name must be %d characters or less\r\n", CFG_APN_LEN);
+				} else {
+					config_updated = true;
+					strcpy (config->apn, tokens[2]);
+				}				
+			} else if (! strcmp (tokens[1], "battery")) {
+			} else if (! strcmp (tokens[1], "debug")) {
+				int debug_level;
+				if (strlen (tokens [2]) == 0) {
+					printf ("Missing debug level\r\n");
+				} else if (strlen (tokens[3]) != 0) {
+					printf ("Extra parameter to \"debug\" command: %s\r\n", tokens[3]);
+				} else if (! parse_int (tokens[2], &debug_level) || debug_level < 0 || debug_level > 5) {
+					printf ("Debug level must be an integer between 0 and 5: %s\r\n", tokens[2]);
+				} else {
+					config_updated = true;
+					config->debug_level = debug_level;
+				}				
+			} else if (! strcmp (tokens[1], "htp")) {
+			} else if (! strcmp (tokens[1], "temperature")) {
+			} else if (strlen (tokens[1]) == 0) {
+				printf ("Missing 'set' option\r\n");
+			} else {
+				printf ("Unrecongnised 'set' option: %s\r\n", tokens[1]);
+			}
+		} else if (! strcmp (tokens[0], "show")) {
+			if (! strcmp (tokens[1], "config")) {
+				PrintConfig (config);
+			} else if (! strcmp (tokens[1], "diagnostics")) {
+				PrintDiagnostics ();
+			} else if (strlen (tokens[1]) == 0) {
+				printf ("Missing 'show' option\r\n");
+			} else {
+				printf ("Unrecongnised 'show' option: %s\r\n", tokens[1]);
+			}
+		} else if (strlen (tokens[0]) == 0) {
+			// empty line - do nothing
+		} else {
+			printf ("Unrecongnised command: %s\r\n", tokens[0]);
+		}
+	}
+}
+
+/**
+ * @brief Ask they user whether to continue or not
+ * @retval true to continue, false to cancel
+ */
+bool UserIOQuery (char *msg, void (*periodic_cb)(void)) {
+	printf ("%s - do you want to continue? Press \"y\" or \"n\" and ENTER: ", msg);
+	bool done = false;
+	bool answer;
+	while (! done) {
+		char line [20];
+		while (! UserIOReadLine (line, sizeof (line))) {
+			if (periodic_cb != NULL)
+				periodic_cb ();
+		}
+		if (strcmp (line, "y") == 0) {
+			done = true;
+			answer = true;
+		} else if (strcmp (line, "n") == 0) {
+			done = true;
+			answer = false;
+		} else {
+			printf ("Please type \"y\" or \"n\" and ENTER: ");
+		}
+	} 
+	
+	return answer;
+}
+
+/** 
+ * @brief Display a help screen
+ */
+void PrintHelp (void) {
+	printf ("Commands:\r\n");
+	printf ("  end                               : terminate the program\r\n");
+	printf ("  defaults                          : set the configuration back to default values\r\n");
+	printf ("  help                              : show this help information\r\n");
+	printf ("  run                               : run the program\r\n");
+	printf ("  restart                           : reboot the system\r\n");
+	printf ("  save                              : save the configuration\r\n");
+	printf ("  set apn <string>                  : set the access point name for the mobile network\r\n");
+	printf ("  set battery <number> <string>     : set the name for battery 1-3\r\n");
+	printf ("  set debug <number>                : set the program's debug level (0-5, 0 = off)\r\n");
+	printf ("  set htp <number> <string>         : set HTP host 1-4\r\n");
+	printf ("  set temperature <number> <string> : set the name for temperature / humidity sensor 1-4\r\n");
+	printf ("  show config                       : show the current configuration\r\n");
+	printf ("  show diagnostics                  : show processor diagnostics\r\n");
+}
+
+/** 
+ * @brief print useful diagnostic information about the processor
+ */
+void PrintDiagnostics (void) {
+	uint32_t sysclk = HAL_RCC_GetSysClockFreq();  // SYSCLK
+	uint32_t hclk   = HAL_RCC_GetHCLKFreq();      // CPU/AHB clock
+	uint32_t pclk1  = HAL_RCC_GetPCLK1Freq();     // APB1 (TIM2's bus)
+	
+	// Defined in ./CubeMX/Core/Src/tim.c
+	extern TIM_HandleTypeDef htim2;
+
+	printf ("Diagnostics: \r\n");
+	printf ("  SYSCLK %lu, HCLK %lu, PCLK1 %lu\r\n", sysclk, hclk, pclk1);
+	printf ("  TIM2 prescaler init %lu, current %lu\r\n", htim2.Init.Prescaler, TIM2->PSC);
+	printf ("  Configuration memory start / length): %p / %u\r\n",
+	        GetConfigMemAddr (), GetConfigMemSize ());
+}
+
+void PrintConfig (ConfigData_t *config) {
+	printf ("Configuration (%s):\r\n", config->loaded_from_flash ? "loaded from flash" : "using defaults");
+	printf ("  Debug level: %d\r\n", (int) config->debug_level);
+	printf ("  Access Point Name: %s\r\n", config->apn);
+	for (int count=0; count<CFG_N_HTP_HOSTS; count++)
+		printf ("  HTP host %d: %s\r\n", count +1, config->htp_hosts[count]);
+	for (int count=0; count<CFG_N_DHT22_SENSORS; count++)
+		printf ("  Temperature / humidity sensor %d name: %s\r\n", count +1, config->dht22_names[count]);
+	for (int count=0; count<CFG_N_BATTERY_ADCS; count++)
+		printf ("  Battery %d name: %s\r\n", count +1, config->battery_adc_names[count]);
+}
+
+/**********************************************************************************
+ ************************ Functions for debugging *********************************
+ **********************************************************************************/
 
 /** 
  * @brief print debug messages to the "console"
@@ -132,35 +377,9 @@ void DebugDump2 (uint8_t msg_level, const char *format, const uint32_t *array, i
 	}
 }
 
-/** 
- * @brief print useful diagnostic information about the processor
- */
-void PrintDiagnostics (void) {
-	uint32_t sysclk = HAL_RCC_GetSysClockFreq();  // SYSCLK
-	uint32_t hclk   = HAL_RCC_GetHCLKFreq();      // CPU/AHB clock
-	uint32_t pclk1  = HAL_RCC_GetPCLK1Freq();     // APB1 (TIM2's bus)
-	
-	// Defined in ./CubeMX/Core/Src/tim.c
-	extern TIM_HandleTypeDef htim2;
-
-	printf ("Diagnostics: \r\n");
-	printf ("  SYSCLK %lu, HCLK %lu, PCLK1 %lu\r\n", sysclk, hclk, pclk1);
-	printf ("  TIM2 prescaler init %lu, current %lu\r\n", htim2.Init.Prescaler, TIM2->PSC);
-	printf ("  Configuration memory start / length): %p / %u\r\n",
-	        GetConfigMemAddr (), GetConfigMemSize ());
-}
-
-void PrintConfig (ConfigData_t *config) {
-	printf ("Configuration (%s):\r\n", config->loaded_from_flash ? "loaded from flash" : "using defaults");
-	printf ("  Debug level: %d\r\n", (int) config->debug_level);
-	printf ("  Access Point Name: %s\r\n", config->apn);
-	for (int count=0; count<CFG_N_HTP_HOSTS; count++)
-		printf ("  HTP host %d: %s\r\n", count +1, config->htp_hosts[count]);
-	for (int count=0; count<CFG_N_DHT22_SENSORS; count++)
-		printf ("  Temperature / humidity sensor %d name: %s\r\n", count +1, config->dht22_names[count]);
-	for (int count=0; count<CFG_N_BATTERY_ADCS; count++)
-		printf ("  Battery %d name: %s\r\n", count +1, config->battery_adc_names[count]);
-}
+/**********************************************************************************
+ ********************** Functions to handle UART IO *******************************
+ **********************************************************************************/
 
 /**
  * @brief Get a line from the STLINK uart
@@ -174,6 +393,10 @@ void PrintConfig (ConfigData_t *config) {
  * @retval true when a full line is in buf (null terminated, no newline)
  */
 bool UserIOReadLine (char *buf, size_t size) {
+	// if the UART isn't initialised, we can't do anything
+	if (! uart_initialised)
+		return false;
+
     static size_t len = 0;
     uint8_t byte;
 

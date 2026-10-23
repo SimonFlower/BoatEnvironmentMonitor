@@ -33,15 +33,9 @@ void App (void) {
 	// Start the program
 	bool user_io_status = UserIOInit (config->debug_level);
 	printf ("\r\nBoat Environment Monitor starting\r\n");
-	PrintDiagnostics ();
 
-char cmd[64];
-printf("> ");
-while (! UserIOReadLine (cmd, sizeof (cmd))) {
-    WatchdogCallback ();
-}
-printf("Command = '%s'\r\n", cmd);
-	PrintConfig (config);
+	// Run the command processor - this may change the configuration
+	CommandProcesser (config, true, 4000, WatchdogCallback);
 
 	// Bring up the modem
 	printf ("App: Setting up modem\r\n");
