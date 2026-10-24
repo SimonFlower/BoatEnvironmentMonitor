@@ -1,1 +1,17 @@
+# Compiler build products
 CubeMX/build/
+
+# KiCad user preferences
+Electronics/kicad/*.kicad_prl
+
+# KiCad backups
+Electronics/kicad/BoatEnvironmentalMonitor-backups/
+Electronics/kicad/*-bak
+
+# KiCad caches
+Electronics/kicad/fp-info-cache
+
+# Generated outputs
+Electronics/kicad/*.net
+Electronics/kicad/*.xml
+Electronics/kicad/*.csv
