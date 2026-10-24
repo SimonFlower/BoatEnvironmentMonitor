@@ -11,6 +11,7 @@
 #include "modem_at.h"
 #include "app_iwdg.h"
 #include "dht22.h"
+#include "adc_reader.h"
 #include "led.h"
 #include "app.h"
 
@@ -34,6 +35,14 @@ void App (void) {
 	bool user_io_status = UserIOInit (config->debug_level);
 	printf ("\r\nBoat Environment Monitor starting\r\n");
 
+// Read ADC channels
+bool adc_status;
+for (int count=0; count<10; count++) {
+	uint16_t adc_readings [4];
+	adc_status = ADCTakeReadings (10, adc_readings);
+}
+BlinkLEDForever (adc_status ? LED_SUCCESS : LED_ADC_ERROR, WatchdogCallback); 
+
 	// Run the command processor - this may change the configuration
 	CommandProcesser (config, true, 4000, WatchdogCallback);
 
@@ -52,14 +61,14 @@ void App (void) {
 
 	// read DHT22 sensors until a NO_SENSOR return from the reading function
 	printf ("App: Reading DLT22 sensors\r\n");
-	DHT22Reading_t readings [N_DHT22_SENSORS];
+	DHT22Reading_t dht22_readings [N_DHT22_SENSORS];
 	int n_dht22_readings = 0;
 	bool dht22_clock_valid = DHT22Init ();
 	bool dht22_status = true;
 	if (dht22_clock_valid) {
 		bool continue_reading = true;
 		for (DHT22SensorID_t sensor = DHT22_1; (sensor < N_DHT22_SENSORS) && continue_reading; sensor++) {
-			DHT22ReadingStatus_t rd_status = DHT22TakeReading (sensor, &(readings[n_dht22_readings]));
+			DHT22ReadingStatus_t rd_status = DHT22TakeReading (sensor, &(dht22_readings[n_dht22_readings]));
 			switch (rd_status) {
 				case DHT22_READING_OK:
 					n_dht22_readings += 1;

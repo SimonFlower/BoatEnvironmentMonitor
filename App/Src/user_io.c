@@ -93,7 +93,7 @@ void CommandProcesser (ConfigData_t * config, bool query_user, uint32_t timeout,
 			user_responded = UARTReceiveByte (UART_STLINK, &byte);
 			
 			if (! user_responded)
-				HAL_Delay (100);
+				HAL_Delay (200);
 		} while ((elapse < timeout) && (! user_responded));
 		printf ("\r\n");
 		if (! user_responded)
@@ -144,9 +144,6 @@ void CommandProcesser (ConfigData_t * config, bool query_user, uint32_t timeout,
 				printf ("Program terminating\r\n");
 				BlinkLEDForever (LED_SUCCESS, periodic_cb);
 			}
-		} else if (! strcmp (tokens[0], "defaults")) {
-			SetConfigDefaults ();
-			printf ("Configuration set to defaults\r\n");
 		} else if (! strcmp (tokens[0], "help")) {
 			PrintHelp ();
 		} else if (! strcmp (tokens[0], "run")) {
@@ -183,6 +180,19 @@ void CommandProcesser (ConfigData_t * config, bool query_user, uint32_t timeout,
 					strcpy (config->apn, tokens[2]);
 				}				
 			} else if (! strcmp (tokens[1], "battery")) {
+				int battery_no;
+				if (strlen (tokens[2]) == 0) {
+					printf ("Missing battery number\r\n");
+				} else if (! parse_int (tokens[2], &battery_no) || battery_no < 1 || battery_no > CFG_N_BATTERY_ADCS) {
+					printf ("Battery number must be an integer between 1 and %d: %s\r\n", CFG_N_BATTERY_ADCS, tokens[2]);
+				} else if (strlen (tokens[3]) == 0) {
+					printf ("Missing battery name\r\n");
+				} else if (strlen (tokens[3]) >= CFG_BATTERY_ADC_NAME_LEN) {
+					printf ("Battery name must be %d characters or less\r\n", CFG_BATTERY_ADC_NAME_LEN);
+				} else {
+					config_updated = true;
+					strcpy (config->battery_adc_names[battery_no -1], tokens[3]);
+				}
 			} else if (! strcmp (tokens[1], "debug")) {
 				int debug_level;
 				if (strlen (tokens [2]) == 0) {
@@ -195,8 +205,38 @@ void CommandProcesser (ConfigData_t * config, bool query_user, uint32_t timeout,
 					config_updated = true;
 					config->debug_level = debug_level;
 				}				
+			} else if (! strcmp (tokens[1], "defaults")) {
+    			SetConfigDefaults ();
+				config_updated = true;
+				printf ("Configuration set to defaults\r\n");
 			} else if (! strcmp (tokens[1], "htp")) {
+				int htp_no;
+				if (strlen (tokens[2]) == 0) {
+					printf ("Missing HTP number\r\n");
+				} else if (! parse_int (tokens[2], &htp_no) || htp_no < 1 || htp_no > CFG_N_HTP_HOSTS) {
+					printf ("HTP number must be an integer between 1 and %d: %s\r\n", CFG_N_HTP_HOSTS, tokens[2]);
+				} else if (strlen (tokens[3]) == 0) {
+					printf ("Missing HTP host\r\n");
+				} else if (strlen (tokens[3]) >= CFG_HTP_HOST_LEN) {
+					printf ("HTP host name must be %d characters or less\r\n", CFG_HTP_HOST_LEN);
+				} else {
+					config_updated = true;
+					strcpy (config->htp_hosts[htp_no -1], tokens[3]);
+				}
 			} else if (! strcmp (tokens[1], "temperature")) {
+				int temperature_no;
+				if (strlen (tokens[2]) == 0) {
+					printf ("Missing temperature number\r\n");
+				} else if (! parse_int (tokens[2], &temperature_no) || temperature_no < 1 || temperature_no > CFG_N_DHT22_SENSORS) {
+					printf ("Temperature number must be an integer between 1 and %d: %s\r\n", CFG_N_DHT22_SENSORS, tokens[2]);
+				} else if (strlen (tokens[3]) == 0) {
+					printf ("Missing temperature name\r\n");
+				} else if (strlen (tokens[3]) >= CFG_DHT22_NAME_LEN) {
+					printf ("Temperature name must be %d characters or less\r\n", CFG_DHT22_NAME_LEN);
+				} else {
+					config_updated = true;
+					strcpy (config->dht22_names[temperature_no -1], tokens[3]);
+				}
 			} else if (strlen (tokens[1]) == 0) {
 				printf ("Missing 'set' option\r\n");
 			} else {
@@ -254,7 +294,6 @@ bool UserIOQuery (char *msg, void (*periodic_cb)(void)) {
 void PrintHelp (void) {
 	printf ("Commands:\r\n");
 	printf ("  end                               : terminate the program\r\n");
-	printf ("  defaults                          : set the configuration back to default values\r\n");
 	printf ("  help                              : show this help information\r\n");
 	printf ("  run                               : run the program\r\n");
 	printf ("  restart                           : reboot the system\r\n");
@@ -262,6 +301,7 @@ void PrintHelp (void) {
 	printf ("  set apn <string>                  : set the access point name for the mobile network\r\n");
 	printf ("  set battery <number> <string>     : set the name for battery 1-3\r\n");
 	printf ("  set debug <number>                : set the program's debug level (0-5, 0 = off)\r\n");
+	printf ("  set defaults                      : set the configuration back to default values\r\n");
 	printf ("  set htp <number> <string>         : set HTP host 1-4\r\n");
 	printf ("  set temperature <number> <string> : set the name for temperature / humidity sensor 1-4\r\n");
 	printf ("  show config                       : show the current configuration\r\n");

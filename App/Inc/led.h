@@ -11,7 +11,8 @@ typedef enum {
     LED_CLOCK_ERROR = 2,
     LED_MODEM_ERROR = 3,
     LED_DHT22_ERROR = 4,
-    LED_SYSTEM_ERROR = 5
+    LED_ADC_ERROR = 5,
+    LED_SYSTEM_ERROR = 6
 } LEDPattern_t;
 
 /* forward declarations */
